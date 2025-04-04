@@ -1,0 +1,284 @@
+/* src/components/routes/Other/Header/Upload/UploadNew.css */
+
+
+
+.int-chose{
+    font-size: 0.75rem;
+    margin: 0;
+    padding: 0.25rem;
+}
+
+.header-mapping-container{
+    display: grid;
+    margin: 0;
+    padding: 0.25rem;
+    grid-template-columns: 150px 200px;
+    gap: 25px;
+}
+
+.upload_new_headiiii {
+    color: #364C63;
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: bold;
+    letter-spacing: 0.05rem;
+    margin: 0;
+    padding: 0.5rem;
+    grid-column: 2;
+}
+
+.upload_new_headiiii:hover {
+    color: #EF6F53;
+}
+
+
+.upload_new_headii{
+    color: #364C63;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 0.05rem;
+    margin: 0;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    margin-top: 1rem;
+}
+
+.mapping-container {
+    width: 100%;
+    max-width: 800px;
+    margin: auto;
+    height: 70vh;
+    overflow-y: auto;
+}
+
+.mapping-rows {
+    display: grid;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mapping-row {
+    display: grid;
+    grid-template-columns: 150px 200px;
+    align-items: center;
+    gap: 10px;
+}
+
+.system-header {
+    padding: 1px 5px;
+    color: white;
+    background-color: #364C63;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    margin: 0;
+    justify-self: start;
+    font-weight: 800;
+}
+
+.file-header {
+    justify-self: start;
+}
+
+.header-select {
+    width: 150px;
+    padding: 0.75px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.submitt-btnn{
+    padding: 5px 10px;
+    background-color: #EF6F53;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.submitt-btnn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.submitt-btnn:hover {
+    background-color: #2d6929;
+    cursor: pointer;
+}
+
+.submit-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    grid-column: 1 / -1;
+}
+
+.containerr {
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+    gap: 30px;
+}
+
+.upload-form {
+    flex: 1;
+    width: 50%;
+}
+
+.upload-result {
+    flex: 1;
+    width: 30%;
+    padding: 20px;
+    position: sticky;
+    top: 25px;
+    height: 60vh;
+    overflow-y: auto;
+}
+
+.upload_res_headii {
+    color: #364C63;
+    margin-bottom: 20px;
+    font-size: 1.15rem;
+}
+
+.upload_res_para {
+    color: #364C63;
+    margin: 10px 0;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+
+.duplicate_records_table {
+    margin: auto;
+    margin-top: 10px;
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.9rem;
+}
+
+.duplicate-records th {
+    background-color: #EF6F53;
+    color: white;
+    padding: 5px;
+    text-align: left;
+}
+
+.duplicate-records td {
+    padding: 5px;
+    border-bottom: 1px solid #ddd;
+}
+
+.butn {
+    padding: 0.25rem;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 500;
+    gap: 5px;
+    transition: all 0.3s ease;
+}
+
+.btn-secondaryyyy {
+    padding: 0.25rem;
+    background-color: #364C63;
+    color: white;
+    border: none;
+    font-size: 0.9rem;
+    margin: auto;
+}
+
+.btn-secondary:hover {
+    background-color: #2a3b4d;
+}
+
+.btn-success {
+    padding: 0.25rem;
+    margin: 5px;
+    /* background-color: #EF6F53; */
+    color: white;
+    border: none;
+    font-size: 0.9rem;
+}
+
+.btn-success:hover {
+    background-color: #2d6929;
+}
+
+.btn-danger {
+    padding: 0.25rem;
+    margin: 5px;
+    /* background-color: #df3319; */
+    color: white;
+    border: none;
+    font-size: 0.9rem;
+}
+
+.btn-danger:hover {
+    background-color: #b82815;
+}
+
+.confirmation-buttons {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.error-message {
+    color: #df3319;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: rgba(223, 51, 25, 0.1);
+    border-radius: 4px;
+}
+
+.upload-header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.download-sample-btn {
+    grid-column: 3;
+    justify-self: end;
+    background-color: #EF6F53;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.download-sample-btn:hover {
+    background-color: #df3319;
+}
+
+/* Scrollbar styling */
+.upload-result::-webkit-scrollbar {
+    width: 6px;
+}
+
+.upload-result::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.upload-result::-webkit-scrollbar-thumb {
+    background: #364C63;
+    border-radius: 3px;
+}
+
+.upload-result::-webkit-scrollbar-thumb:hover {
+    background: #2a3b4d;
+}
+
+.success-text {
+    color: #28a745;
+    font-weight: bold;
+}

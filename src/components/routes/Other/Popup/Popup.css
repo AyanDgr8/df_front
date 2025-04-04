@@ -1,0 +1,63 @@
+/* src/components/routes/Popup/Popup.css */
+
+.popup-overlay {
+    position: fixed;
+    top: 10%;
+    right:10px;
+    width: 100%;
+    height: 100%;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; 
+    justify-content: flex-start; 
+    pointer-events: none; 
+}
+
+.popup-container {
+    background-color: #364c63da;
+    color: white;
+    padding: 0.65rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    margin-top: 10px; /* Adds space between stacked popups */
+    animation: slideIn 0.3s ease-out;
+    position: relative;
+    width: 500px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: auto; 
+}
+
+.popup-message {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+    flex: 1;
+}
+
+.close-btn{
+    border: none;
+    border-radius: 5px;
+    background-color: #364c6314;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: white;
+    margin-left: 5px;
+}
+
+.close-btn:hover{
+    background-color: #364c63d6;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
