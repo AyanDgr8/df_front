@@ -119,3 +119,9 @@
     transition: border-color 0.3s ease;
     color: #323232;
 }
+
+
+
+.create-form-container label span.required {
+    color: #EF6F53;
+}

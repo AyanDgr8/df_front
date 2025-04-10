@@ -16,10 +16,16 @@ import ForgotPassword from "../Sign/ForgotPassword/ForgotPassword";
 import ResetPassword from "../Sign/ResetPassword/ResetPassword";
 import DownloadFile from "../Other/Header/Download/DownloadFile";
 import ApproveUser from "../Sign/ApproveUser/ApproveUser";
+import AdminPortal from "./AdminPortal/AdminPortal";
+import AdminGuard from "../../guards/AdminGuard";
+import RequireAuth from '../../guards/RequireAuth';
 
 const ZForm = () => {
     return (
         <Routes>
+
+            {/* Admin Portal - Protected by AdminGuard */}
+            <Route path="/admin" element={<AdminGuard><AdminPortal /></AdminGuard>} />
             
             {/* List all customers */}
             <Route path="/customers" element={<ListForm />} />
@@ -45,11 +51,23 @@ const ZForm = () => {
             {/* Use customer form by phone number */}
             <Route path="/customers/phone/:phone_no/updates/" element={<LastChangeWrapper />} />
 
-            {/* Uploading new file */}
-            <Route path="/upload-customer-data" element={<UploadNew />} />
-
-            {/* Download data */}
-            <Route path="/download-data" element={<DownloadFile />} />
+            {/* Upload and Download routes - Protected */}
+            <Route 
+                path="/upload" 
+                element={
+                    <RequireAuth>
+                        <UploadNew />
+                    </RequireAuth>
+                } 
+            />
+            <Route 
+                path="/download" 
+                element={
+                    <RequireAuth>
+                        <DownloadFile />
+                    </RequireAuth>
+                } 
+            />
 
             {/* Access call reminders */}
             <Route path="/customers/reminders" element={<Reminder />} />

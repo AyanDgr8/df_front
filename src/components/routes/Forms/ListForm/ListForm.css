@@ -81,41 +81,46 @@
 }
 
 /* Team assignment controls */
-.team-assignment-controls {
+.assign-team-section {
+  padding: 1rem;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1rem;
   display: flex;
-  align-items: center;
   gap: 1rem;
-  margin: 1rem;
-  padding: 0.25rem;
-  background-color: #f8f9fa;
-  border-radius: 4px;
+  align-items: center;
 }
 
-.team-user-select {
-  padding: 0.25rem;
-  border: 1px solid #ced4da;
+.team-select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 0.875rem;
+  color: #364C63;
+  background-color: white;
   min-width: 200px;
-  font-size: 0.9rem;
 }
 
-.assign-team-btn {
-  padding: 0.25rem;
-  background-color: #EF6F53;
+.assign-button {
+  padding: 0.5rem 1rem;
+  background: #EF6F53;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 0.2s;
 }
 
-.assign-team-btn:disabled {
-  background-color: #ccc;
+.assign-button:hover:not(:disabled) {
+  background: #d65d43;
+}
+
+.assign-button:disabled {
+  background: #ffd1c7;
   cursor: not-allowed;
-}
-
-.assign-team-btn:hover:not(:disabled) {
-  background-color: #0056b3;
 }
 
 /* Checkbox styles */
@@ -123,8 +128,26 @@
   width: 16px;
   height: 16px;
   cursor: pointer;
+  accent-color: #EF6F53;
 }
 
+.customers-table th:first-child,
+.customers-table td:first-child {
+  width: 40px;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+/* Selection indicator */
+.selected-row {
+  background-color: #fff3f0 !important;
+}
+
+.selected-row:hover {
+  background-color: #ffe9e4 !important;
+}
+
+/* Checkbox styles */
 .customers-table th input[type="checkbox"] {
   margin: 0;
 }
@@ -271,39 +294,3 @@
   margin: 0;
   padding: 0.5rem;
 }
-
-
-/* @media only screen and (min-width: 901px) and (max-width: 1280px) {
-  .list-container {
-    height: 70vh;
-    width: 100%;
-  }
-  
-  .customers-table td {
-    height: 10%;
-    width: 100%;
-  }
-  
-  .customers-table tr {
-    height: 10%;
-    width: 100%;
-  }
-} */
-/* 
-@media only screen and (min-width: 1281px) and (max-width: 1400px) {
-  .list-container {
-    height: 75vh;
-    width: 100%;
-  }
-  
-  .customers-table td {
-    height: 10%;
-    width: 100%;
-  }
-  
-  .customers-table tr {
-    height: 10%;
-    width: 100%;
-
-  }
-} */

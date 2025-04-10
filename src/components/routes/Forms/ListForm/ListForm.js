@@ -7,77 +7,258 @@ import "./ListForm.css";
 
 const ListForm = () => {
   const [customers, setCustomers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [customersPerPage] = useState(12);
-  const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState([]);
-  const [teamUsers, setTeamUsers] = useState([]);
   const [selectedTeamUser, setSelectedTeamUser] = useState('');
+  const [availableAgents, setAvailableAgents] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [customersPerPage] = useState(10);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [error, setError] = useState(null);
+  const [permissions, setPermissions] = useState({});
   const navigate = useNavigate();
+  const apiUrl = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchUserAndData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const apiUrl = process.env.REACT_APP_API_URL;
-  
-        // Fetch user data
+        
+        // Fetch current user data
         const userResponse = await axios.get(`${apiUrl}/current-user`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         });
-        setUser(userResponse.data);
         
-        // Check if user is admin
-        const userRole = userResponse.data.role;
-        const isAdminUser = userRole === 'Super_Admin' || userRole === 'Department_Admin';
-        setIsAdmin(isAdminUser);
-        
-        // If user is MIS, redirect to upload page
-        if (userRole === 'MIS') {
-          navigate('/upload-customer-data');
-          return;
-        }
-  
-        // Fetch customers
-        if (userResponse.data && userRole !== 'MIS') {
-          const response = await axios.get(`${apiUrl}/customers`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+        const userData = userResponse.data;
+        setUser(userData);
+        console.log('User data:', userData);
 
-          if (response.data.records && Array.isArray(response.data.records)) {
-            setCustomers(response.data.records);
-          } else {
-            console.error('Invalid customers data format:', response.data);
-            setError('Invalid data format received from server');
+        // Get permissions from stored user data
+        const userPermissions = userData.permissions || [];
+        console.log('User stored permissions:', userPermissions);
+        setPermissions(userPermissions.reduce((acc, perm) => ({ ...acc, [perm]: true }), {}));
+
+        // Determine if user is admin
+        const isAdmin = ['super_admin', 'it_admin', 'business_head'].includes(userData.role);
+        console.log('Is admin role?', isAdmin);
+
+        // Fetch customers based on user role and permissions
+        let customerEndpoint;
+        if (userData.role === 'team_leader') {
+          customerEndpoint = `${apiUrl}/customers/team`;
+        } else if (userData.role === 'user' && userPermissions.includes('view_assigned_customers')) {
+          customerEndpoint = `${apiUrl}/customers/assigned`;
+        } else {
+          customerEndpoint = `${apiUrl}/customers`;
+        }
+
+        console.log('Fetching customers from:', customerEndpoint);
+        const customersResponse = await axios.get(customerEndpoint, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        console.log('Customers response:', customersResponse.data);
+
+        // Handle the response data
+        if (customersResponse.data.success && customersResponse.data.data) {
+          console.log('Setting customers from data array:', customersResponse.data.data);
+          setCustomers(customersResponse.data.data);
+        } else if (customersResponse.data.success && customersResponse.data.customers) {
+          console.log('Setting customers from customers array:', customersResponse.data.customers);
+          setCustomers(customersResponse.data.customers);
+        } else if (Array.isArray(customersResponse.data)) {
+          console.log('Setting customers from direct array:', customersResponse.data);
+          setCustomers(customersResponse.data);
+        } else {
+          console.log('No valid customer data found in response');
+          setCustomers([]);
+        }
+
+        // Fetch available agents based on user role
+        const canAssignTeam = userData && ['super_admin', 'it_admin', 'business_head', 'team_leader'].includes(userData.role);
+        if (canAssignTeam) {
+          let agentsEndpoint;
+          if (isAdmin) {
+            // Admin roles can see all users
+            agentsEndpoint = `${apiUrl}/users/all`;
+            console.log('Admin fetching all users');
+          } else if (userData.role === 'team_leader') {
+            // Team leaders can only see their team members
+            agentsEndpoint = `${apiUrl}/users/team/${userData.team_id}`;
+            console.log('Team leader fetching team members');
           }
 
-          // Fetch team users if admin
-          if (isAdminUser) {
-            const teamResponse = await axios.get(`${apiUrl}/users`, {
-              headers: { Authorization: `Bearer ${token}` },
+          if (agentsEndpoint) {
+            console.log('Fetching agents from:', agentsEndpoint);
+            const agentsResponse = await axios.get(agentsEndpoint, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
             });
-            // Filter out non-team users (like admins)
-            const teamUsers = teamResponse.data.filter(user => 
-              user.role !== 'Super_Admin' && 
-              user.role !== 'Department_Admin' && 
-              user.role !== 'MIS'
-            );
-            setTeamUsers(teamUsers);
+            
+            // Process agents response
+            let agents = [];
+            if (agentsResponse.data && Array.isArray(agentsResponse.data.data)) {
+              agents = agentsResponse.data.data;
+            } else if (agentsResponse.data && Array.isArray(agentsResponse.data)) {
+              agents = agentsResponse.data;
+            }
+
+            // Filter out admin users from the list if the current user is a team leader
+            if (userData.role === 'team_leader') {
+              agents = agents.filter(agent => 
+                agent.role === 'user' && agent.team_id === userData.team_id
+              );
+            }
+
+            console.log('Available agents after filtering:', agents);
+            setAvailableAgents(agents);
           }
         }
+
+        setLoading(false);
       } catch (error) {
-        setError('Failed to fetch data.');
-        console.error('Error fetching data:', error.response || error);
-      } finally {
+        console.error('Error fetching data:', error);
+        setError(error);
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, [navigate]);
+    fetchUserAndData();
+  }, [apiUrl]);
+
+  // Check if user has permission to assign
+  const canAssignTeam = user && ['super_admin', 'it_admin', 'business_head', 'team_leader'].includes(user.role);
+
+  // Get current customers for pagination
+  const indexOfLastCustomer = currentPage * customersPerPage;
+  const indexOfFirstCustomer = indexOfLastCustomer - customersPerPage;
+  const currentCustomers = Array.isArray(customers) ? customers.slice(indexOfFirstCustomer, indexOfLastCustomer) : [];
+
+  // Calculate total pages safely
+  const totalPages = Math.ceil((Array.isArray(customers) ? customers.length : 0) / customersPerPage);
+
+  // Pagination component
+  const renderPagination = () => {
+    if (!Array.isArray(customers) || customers.length === 0) return null;
+
+    return (
+      <div className="pagination">
+        {currentPage > 1 && (
+          <button
+            onClick={() => paginate(currentPage - 1)}
+            className="page-number"
+            aria-label="Previous page"
+          >
+            Previous
+          </button>
+        )}
+
+        {[...Array(totalPages).keys()].map((_, idx) => idx + 1)
+          .filter((pageNumber) => {
+            return (
+              pageNumber === 1 || // Always show the first page
+              pageNumber === totalPages || // Always show the last page
+              pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1 // Show current page and adjacent pages
+            );
+          })
+          .map((pageNumber, index, array) => {
+            const isGap = array[index + 1] !== pageNumber + 1 && pageNumber !== totalPages;
+            return (
+              <React.Fragment key={pageNumber}>
+                <button
+                  onClick={() => paginate(pageNumber)}
+                  className={`page-number ${currentPage === pageNumber ? 'active' : ''}`}
+                  aria-label={`Go to page ${pageNumber}`}
+                >
+                  {pageNumber}
+                </button>
+                {isGap && <span className="ellipsis">...</span>}
+              </React.Fragment>
+            );
+          })}
+
+        {currentPage < totalPages && (
+          <button
+            onClick={() => paginate(currentPage + 1)}
+            className="page-number"
+            aria-label="Next page"
+          >
+            Next
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const handleSelectCustomer = (customer) => {
+    if (!canAssignTeam) return;
+    
+    setSelectedCustomers(prev => {
+      const isSelected = prev.find(c => c.id === customer.id);
+      if (isSelected) {
+        return prev.filter(c => c.id !== customer.id);
+      } else {
+        return [...prev, customer];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (!canAssignTeam) return;
+
+    if (selectedCustomers.length === currentCustomers.length) {
+      setSelectedCustomers([]);
+    } else {
+      setSelectedCustomers(currentCustomers);
+    }
+  };
+
+  // Handle team assignment
+  const handleAssignTeam = async () => {
+    if (!selectedTeamUser || selectedCustomers.length === 0) {
+      alert('Please select both a user and at least one customer');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${apiUrl}/customers/assign-team`,
+        {
+          agent_id: parseInt(selectedTeamUser),
+          customer_ids: selectedCustomers.map(c => c.id)
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        alert('Customers assigned successfully');
+        setSelectedCustomers([]);
+        setSelectedTeamUser('');
+        // Refresh the customer list
+        window.location.reload();
+      } else {
+        alert(response.data.message || 'Failed to assign customers');
+      }
+    } catch (error) {
+      console.error('Error assigning customers:', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to assign customers';
+      alert(errorMessage);
+    }
+  };
 
   // Function to format the last updated timestamp
   const formatDateTime = (dateString) => {
@@ -93,296 +274,152 @@ const ListForm = () => {
     return new Date(dateString).toLocaleString('en-GB', options);
   };
 
-  // Get the current customers to display based on the page
-  const indexOfLastCustomer = currentPage * customersPerPage;
-  const indexOfFirstCustomer = indexOfLastCustomer - customersPerPage;
-  const currentCustomers = customers.slice(indexOfFirstCustomer, indexOfLastCustomer);
-
-  const handleSelectCustomer = (customer) => {
-    setSelectedCustomers(prev => {
-      const isSelected = prev.find(c => c.id === customer.id);
-      if (isSelected) {
-        return prev.filter(c => c.id !== customer.id);
-      } else {
-        return [...prev, customer];
-      }
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (selectedCustomers.length === currentCustomers.length) {
-      setSelectedCustomers([]);
-    } else {
-      setSelectedCustomers(currentCustomers);
-    }
-  };
-
-  const handleAssignTeam = async () => {
-    if (!selectedTeamUser || selectedCustomers.length === 0) {
-      alert('Please select team user and customers to assign');
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL;
-      
-      // Log the selected customers and team user
-      console.log('Selected Team User:', selectedTeamUser);
-      console.log('Selected Customers:', selectedCustomers);
-      
-      // Assign each customer to the selected team user
-      const assignPromises = selectedCustomers.map(customer => {
-        const requestData = {
-          customer_id: customer.C_unique_id,
-          user_id: selectedTeamUser
-        };
-        console.log('Sending request data:', requestData);
-        
-        return axios.post(
-          `${apiUrl}/assign-customer`, 
-          requestData,
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-      });
-
-      await Promise.all(assignPromises);
-
-      // Refresh the customer list
-      const response = await axios.get(`${apiUrl}/customers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.data.records && Array.isArray(response.data.records)) {
-        setCustomers(response.data.records);
-        setSelectedCustomers([]);
-        setSelectedTeamUser('');
-        alert('Customers assigned successfully!');
-      }
-    } catch (error) {
-      console.error('Error assigning customers:', error);
-      console.error('Error response:', error.response?.data);
-      const errorMsg = error.response?.data?.message || 'Failed to assign customers. Please try again.';
-      alert(errorMsg);
-    }
-  };
-
   // Change page
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  // Generate page numbers for pagination
-  const renderPageNumbers = () => {
-    const totalPages = Math.ceil(customers.length / customersPerPage);
-    const maxPagesToShow = 5;
-    let pages = [];
-
-    if (totalPages <= maxPagesToShow) {
-      // If total pages are less than max pages to show, show all pages
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        // Show the first few pages and "..." for the rest
-        pages = [1, 2, 3, 4, "...", totalPages];
-      } else if (currentPage >= totalPages - 2) {
-        // Show "..." and the last few pages
-        pages = [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-      } else {
-        // Show "..." before and after the current page
-        pages = [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
-      }
-    }
-
-    return pages.map((page, index) =>
-      page === "..." ? (
-        <span key={index} className="dots">
-          ...
-        </span>
-      ) : (
-        <button
-          key={page}
-          onClick={() => paginate(page)}
-          className={`page-number ${currentPage === page ? "active" : ""}`}
-          aria-label={`Go to page ${page}`}
-        >
-          {page}
-        </button>
-      )
-    );
+  // Function to view/edit customer details
+  const handleViewCustomer = (customer) => {
+      navigate('/customers/phone/' + customer.mobile, { 
+          state: { 
+              customer,
+              permissions // Pass permissions to UseForm
+          } 
+      });
   };
-
-  const handleEdit = (customer) => {
-    navigate('/customers/phone/' + customer.phone_no, { state: { customer } });
-  };
-
+  
   const handleAddRecord = () => {
+    if (!permissions.create_customer) {
+      setError('You do not have permission to create new customers');
+      return;
+    }
     navigate("/customer/new"); 
   };
 
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p className="error">{error}</p>;
-
   return (
-    <div>
-      {/* <Popup /> */}
-      <h2 className="list_form_headi">Customer Relationship Management</h2>
-      <div className="list-container">
-        <div className="table-container">
-          {currentCustomers.length > 0 ? (
-            <table className="customers-table">
-              <thead>
-                <tr className="customer-row">
-                  {isAdmin && (
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={selectedCustomers.length === currentCustomers.length}
-                        onChange={handleSelectAll}
-                      />
-                    </th>
-                  )}
-                  <th>ID</th>
-                  <th>Customer Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Disposition</th>
-                  <th>Gender</th>
-                  <th>Region</th>
-                  <th>Agent Assigned</th>
-                  <th>Last Updated</th>
-                </tr>
-              </thead>
-              <tbody className="customer-body">
-                {currentCustomers.map((customer) => (
-                  <tr 
-                    key={customer.id} 
-                    onClick={(e) => {
-                      if (e.target.type !== 'checkbox') {
-                        handleEdit(customer);
-                      }
-                    }} 
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {isAdmin && (
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selectedCustomers.some(c => c.id === customer.id)}
-                          onChange={() => handleSelectCustomer(customer)}
-                        />
-                      </td>
-                    )}
-                    <td>{customer.C_unique_id}</td>
-                    <td className="customer-name">{customer.first_name} {customer.last_name}</td>
-                    <td>{customer.email_id}</td>
-                    <td><a href={`tel:${customer.phone_no}`}>{customer.phone_no}</a></td>
-                    <td>{customer.disposition}</td>
-                    <td>{customer.gender}</td>
-                    <td>{customer.region}</td>
-                    <td>{customer.agent_name}</td>
-                    <td>{formatDateTime(customer.last_updated)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p>No recent records found.</p>
-          )}
-        </div>
+    <div className="list-form-container">
+      {loading ? (
+        <div>Loading...</div>
+      ) : error ? (
+        <div className="error-message">{error.message}</div>
+      ) : (
+        <div>
+          <h2 className="list_form_headi">Customer Relationship Management</h2>
+          <div className="list-container">
+            <div className="table-container">
+              {Array.isArray(customers) && customers.length > 0 ? (
+                <div>
+                  <table className="customers-table">
+                    <thead>
+                      <tr className="customer-row">
+                        {canAssignTeam && (
+                          <th>
+                            <input
+                              type="checkbox"
+                              checked={selectedCustomers.length === currentCustomers.length}
+                              onChange={handleSelectAll}
+                            />
+                          </th>
+                        )}
+                        <th>Loan No/ Card No</th>
+                        <th>CRN</th>
+                        <th>Customer Name</th>
+                        <th>Product</th>
+                        <th>Bank Name</th>
+                        <th>Agent Name</th>
+                        <th>DPD Vintage</th>
+                        <th>POS</th>
+                        <th>EMI Amount</th>
+                        <th>Loan Amount</th>
+                        <th>Mobile</th>
+                        <th>Paid Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="customer-body">
+                      {currentCustomers.map((customer) => (
+                        <tr 
+                          key={customer.id} 
+                          onClick={(e) => {
+                            if (e.target.type !== 'checkbox') {
+                              handleViewCustomer(customer);
+                            }
+                          }} 
+                          className="clickable-row"
+                          title="Click to view details"
+                        >
+                          {canAssignTeam && (
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selectedCustomers.some(c => c.id === customer.id)}
+                                onChange={() => handleSelectCustomer(customer)}
+                              />
+                            </td>
+                          )}
+                          <td>{customer.loan_card_no}</td>
+                          <td>{customer.CRN}</td>
+                          <td>{customer.c_name}</td>
+                          <td>{customer.product}</td>
+                          <td>{customer.bank_name}</td>
+                          <td>{customer.agent_name}</td>
+                          <td>{customer.DPD_vintage}</td>
+                          <td>{customer.POS}</td>
+                          <td>{customer.emi_AMT}</td>
+                          <td>{customer.loan_AMT}</td>
+                          <td><a href={`tel:${customer.mobile}`}>{customer.mobile}</a></td>
+                          <td>{customer.paid_AMT}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p>No recent records found.</p>
+              )}
+            </div>
 
-        {/* Team assignment controls for admin */}
-        {isAdmin && selectedCustomers.length > 0 && (
-          <div className="team-assignment-controls">
-            <select 
-              value={selectedTeamUser}
-              onChange={(e) => setSelectedTeamUser(e.target.value)}
-              className="team-user-select"
-            >
-              <option value="">Select User</option>
-              {teamUsers.map(user => (
-                <option key={user.id} value={user.id}>
-                  {user.username}
-                </option>
-              ))}
-            </select>
-            <button 
-              onClick={handleAssignTeam}
-              className="assign-team-btn"
-              disabled={!selectedTeamUser}
-            >
-              Assign to Team User
-            </button>
-          </div>
-        )}
-
-        {/* Pagination Controls */}
-        <div className="pagination-container">
-          {/* <button 
-            onClick={handleAddRecord} 
-            className="add-record-btn"
-            aria-label="Add new customer"
-          >
-            Add Record 
-          </button> */}
-
-          <div className="pagination">
-            {currentPage > 1 && (
-              <button
-                onClick={() => paginate(currentPage - 1)}
-                className="page-number"
-                aria-label="Previous page"
-              >
-                Previous
-              </button>
+            {/* Team assignment controls for admin */}
+            {canAssignTeam && (
+              <div className="team-assignment-controls">
+                <select 
+                  value={selectedTeamUser}
+                  onChange={(e) => setSelectedTeamUser(e.target.value)}
+                  className="team-user-select"
+                >
+                  <option value="">Select User</option>
+                  {availableAgents.map(agent => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.username} {agent.role === 'user' ? '(Agent)' : `(${agent.role})`}
+                    </option>
+                  ))}
+                </select>
+                <button 
+                  onClick={handleAssignTeam}
+                  className="assign-team-btn"
+                  disabled={!selectedTeamUser || selectedCustomers.length === 0}
+                >
+                  Assign to Selected User
+                </button>
+              </div>
             )}
 
-            {[...Array(Math.ceil(customers.length / customersPerPage)).keys()].map((_, idx) => idx + 1)
-              .filter((pageNumber) => {
-                const totalPages = Math.ceil(customers.length / customersPerPage);
-                // Show first two pages, current page, last two pages, and pages around the current
-                return (
-                  pageNumber === 1 || // Always show the first page
-                  pageNumber === totalPages || // Always show the last page
-                  pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1 // Show current page and adjacent pages
-                );
-              })
-              .map((pageNumber, index, array) => {
-                // Add "..." where needed
-                const isGap = array[index + 1] !== pageNumber + 1 && pageNumber !== Math.ceil(customers.length / customersPerPage);
-                return (
-                  <React.Fragment key={pageNumber}>
-                    <button
-                      onClick={() => paginate(pageNumber)}
-                      className={`page-number ${currentPage === pageNumber ? 'active' : ''}`}
-                      aria-label={`Go to page ${pageNumber}`}
-                    >
-                      {pageNumber}
-                    </button>
-                    {isGap && <span className="ellipsis">...</span>}
-                  </React.Fragment>
-                );
-              })}
-
-            {currentPage < Math.ceil(customers.length / customersPerPage) && (
-              <button
-                onClick={() => paginate(currentPage + 1)}
-                className="page-number"
-                aria-label="Next page"
-              >
-                Next
-              </button>
-            )}
+            {/* Pagination Controls */}
+            <div className="pagination-container">
+              {permissions.create_customer && (
+                <button 
+                  onClick={handleAddRecord} 
+                  className="add-record-btn"
+                  aria-label="Add new customer"
+                >
+                  Add Record 
+                </button>
+              )}
+              {renderPagination()}
+            </div>
           </div>
-
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
 export default ListForm;
-
-

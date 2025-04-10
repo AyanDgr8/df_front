@@ -1,92 +1,105 @@
 // src/context/PopupContext.js
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
 const PopupContext = createContext();
 
 export const PopupProvider = ({ children }) => {
   const [popupMessages, setPopupMessages] = useState([]);
-  const [shownMessages, setShownMessages] = useState(new Set());
 
-  const addPopupMessage = (message, customer) => {
-    setPopupMessages((prevMessages) => {
+  const addPopupMessage = (popup) => {
+    setPopupMessages(prevMessages => {
       // Check if this specific message has already been shown
-      const existingMessageIndex = prevMessages.findIndex(popup => popup.message === message);
+      const existingMessageIndex = prevMessages.findIndex(
+        msg => msg.customer?.mobile === popup.customer?.mobile
+      );
+
       if (existingMessageIndex !== -1) {
-        // If it exists, just return the previous state (no need to add again)
-        return prevMessages;
+        // Update existing message with new priority/time
+        const updatedMessages = [...prevMessages];
+        updatedMessages[existingMessageIndex] = popup;
+        return updatedMessages;
       } else {
-        // Otherwise, add the new message
-        return [...prevMessages, { message, customer }];
+        // Add new message
+        return [...prevMessages, popup];
       }
     });
   };
 
   const removePopupMessage = (index) => {
-    setPopupMessages((prevMessages) => prevMessages.filter((_, i) => i !== index));
+    setPopupMessages(prevMessages => prevMessages.filter((_, i) => i !== index));
   };
 
-  const fetchReminders = async () => {
+  const getReminders = async () => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
-      const token = localStorage.getItem('token'); // Get authentication token
+      const token = localStorage.getItem('token');
 
-      if (!token) {
-        console.warn("No authentication token found");
-        return [];
-      }
+      if (!token) return;
 
       const response = await axios.get(`${apiUrl}/customers/reminders`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      return response.data;
+
+      // Process reminders for popup notifications
+      response.data.forEach(reminder => {
+        const minutesUntil = Math.floor((new Date(reminder.scheduled_at) - new Date()) / (1000 * 60));
+        
+        // Only show popup for reminders within 15 minutes
+        if (minutesUntil <= 15) {
+          let priority;
+          let color;
+
+          if (minutesUntil <= 5) {
+            priority = 'high';
+            color = 'red';
+          } else if (minutesUntil <= 15) {
+            priority = 'medium';
+            color = 'orange';
+          }
+
+          const popup = {
+            customer: reminder,
+            priority,
+            color,
+            minutesUntil,
+            onClick: () => {
+              window.location.href = `/customers/phone/${reminder.mobile}`;
+            }
+          };
+
+          addPopupMessage(popup);
+        }
+      });
     } catch (error) {
-      console.error("Error fetching reminders:", error);
-      if (error.response?.status === 401) {
-        // Handle unauthorized access
-        return [];
-      }
-      return [];
+      console.error('Error fetching reminders:', error);
     }
   };
 
   useEffect(() => {
-    const checkReminders = async () => {
-      const reminders = await fetchReminders();
-      const now = new Date();
+    // Initial fetch
+    getReminders();
 
-      reminders.forEach((reminder) => {
-        const scheduledTime = new Date(reminder.scheduled_at);
-        const timeDiff = scheduledTime - now;
+    // Set up polling every minute
+    const interval = setInterval(getReminders, 60000);
 
-        if (timeDiff > 0 && timeDiff <= 60000) {
-          const message = `Call scheduled for ${reminder.first_name} ${reminder.last_name} at ${scheduledTime.toLocaleString()}`;
-
-          // Check if the message has already been shown
-          if (!shownMessages.has(message)) {
-            // Create a new Set to trigger re-render
-            const updatedShownMessages = new Set(shownMessages);
-            updatedShownMessages.add(message);
-            setShownMessages(updatedShownMessages); // Update the state
-            
-            addPopupMessage(message, reminder); // Add the new message to the popup
-          }
-        }
-      });
-    };
-
-    const interval = setInterval(checkReminders, 10000);
     return () => clearInterval(interval);
-  }, [shownMessages]);
+  }, []);
 
   return (
-    <PopupContext.Provider value={{ popupMessages, removePopupMessage }}>
+    <PopupContext.Provider value={{ popupMessages, addPopupMessage, removePopupMessage }}>
       {children}
     </PopupContext.Provider>
   );
 };
 
-export const usePopup = () => useContext(PopupContext);
+export const usePopup = () => {
+  const context = useContext(PopupContext);
+  if (!context) {
+    throw new Error('usePopup must be used within a PopupProvider');
+  }
+  return context;
+};

@@ -1,92 +1,108 @@
-// src/components/routes/Reminder/Reminder.js
+// src/components/routes/Other/Reminder/Reminder.js
 
-import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { useNavigate } from "react-router-dom";
-import "./Reminder.css";
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { usePopup } from '../../../../context/PopupContext';
+import { useNavigate } from 'react-router-dom';
+import './Reminder.css';
 
 const Reminder = () => {
+    const { addPopupMessage } = usePopup();
     const [reminders, setReminders] = useState([]);
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
 
-    // Fetch reminders from the server
-    const fetchReminders = async () => {
-      try {
-        const apiUrl = process.env.REACT_APP_API_URL;
-        const token = localStorage.getItem('token'); // Get authentication token
-        
-        const response = await axios.get(`${apiUrl}/customers/reminders`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        setReminders(response.data);
-      } catch (error) {
-        console.error("Error fetching reminders:", error);
-        if (error.response?.status === 401) {
-          // Handle unauthorized access
-          setReminders([]);
+    const fetchAllReminders = async () => {
+        try {
+            const apiUrl = process.env.REACT_APP_API_URL;
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                setError('No authentication token found');
+                return;
+            }
+
+            const response = await axios.get(`${apiUrl}/customers/getAllReminders`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            // Sort reminders by scheduled_at
+            const sortedReminders = response.data.sort((a, b) => {
+                return new Date(a.scheduled_at) - new Date(b.scheduled_at);
+            });
+
+            setReminders(sortedReminders);
+
+        } catch (error) {
+            console.error('Error fetching reminders:', error);
+            setError('Error fetching reminders: ' + error.message);
         }
-      }
     };
 
-    // Function to format date and time
-    const formatDateTime = (dateString) => {
-      const options = {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      };
-      return new Date(dateString).toLocaleString('en-GB', options);
-    };
-
-    // Function to handle row click
-    const handleRowClick = (reminder) => {
-        navigate(`/customers/phone/${reminder.phone_no}`, { state: { customer: reminder } });
+    // Handle click on a reminder record
+    const handleRecordClick = (customer) => {
+        navigate(`/customers/phone/${customer.mobile}`, { 
+            state: { 
+                customer: customer,
+                fromReminder: true
+            } 
+        });
     };
 
     useEffect(() => {
-      fetchReminders();
-      const interval = setInterval(fetchReminders, 60000); // Refresh reminders every minute
-      return () => clearInterval(interval);
+        // Initial fetch
+        fetchAllReminders();
+
+        // Set up polling every minute
+        const interval = setInterval(fetchAllReminders, 60000);
+
+        return () => clearInterval(interval);
     }, []);
 
+    // Function to determine the status color
+    const getStatusColor = (scheduledAt) => {
+        const minutesUntil = Math.floor((new Date(scheduledAt) - new Date()) / (1000 * 60));
+        if (minutesUntil <= 5) return 'red';
+        if (minutesUntil <= 15) return 'orange';
+        return 'green';
+    };
+
+    if (error) {
+        return <div className="error-message">{error}</div>;
+    }
+
     return (
-        <div>
-            <h2 className="list_reminder_headi">Upcoming Reminders</h2>
-            <div className="reminder-container">
-                {reminders.length > 0 ? (
-                    <table className="reminders-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Customer Name</th>
-                                <th>Phone</th>
-                                <th>Scheduled Date & Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {reminders.map((reminder) => (
-                                <tr 
-                                    key={reminder.C_unique_id} 
-                                    onClick={() => handleRowClick(reminder)}
-                                    style={{ cursor: 'pointer' }}
-                                    className="reminder-row"
-                                >
-                                    <td>{reminder.C_unique_id}</td>
-                                    <td>{reminder.first_name} {reminder.middle_name} {reminder.last_name}</td>
-                                    <td>{reminder.phone_no}</td>
-                                    <td>{formatDateTime(reminder.scheduled_at)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                ) : (
+        <div className="reminders-container">
+            <h2 className='list_reminder_headi'>Upcoming Reminders</h2>
+            <div className="reminders-list">
+                {reminders.length === 0 ? (
                     <p>No upcoming reminders</p>
+                ) : (
+                    reminders.map((reminder, index) => (
+                        <div 
+                            key={index} 
+                            className={`reminder-item ${getStatusColor(reminder.scheduled_at)}`}
+                            onClick={() => handleRecordClick(reminder)}
+                            style={{ cursor: 'pointer' }}
+                        >
+                            <div className="customer-info">
+                                <p><strong>Name:</strong> {reminder.c_name}</p>
+                                <p><strong>Loan Card:</strong> {reminder.loan_card_no}</p>
+                                <p><strong>CRN:</strong> {reminder.CRN}</p>
+                                <p><strong>Mobile:</strong> {reminder.mobile}</p>
+                                <p><strong>Agent:</strong> {reminder.agent_name}</p>
+                                {reminder.team_name && (
+                                    <p><strong>Team:</strong> {reminder.team_name}</p>
+                                )}
+                            </div>
+                            <div className="time-info">
+                                <p><strong>Scheduled At:</strong> {new Date(reminder.scheduled_at).toLocaleString()}</p>
+                                <p><strong>Time Until Call:</strong> {Math.floor((new Date(reminder.scheduled_at) - new Date()) / (1000 * 60))} minutes</p>
+                            </div>
+                        </div>
+                    ))
                 )}
             </div>
         </div>

@@ -1,0 +1,328 @@
+/* src/components/routes/Forms/AdminPortal/AdminPortal.css */
+
+.admin-portal-container {
+    display: flex;
+    flex-direction: column;
+    background-color: #364C63;
+}
+
+.admin-portal {
+    padding: 0.5rem;
+    margin: auto;
+    flex: 1;
+    width: 100%;
+}
+
+.sectionn {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.admin-portal-heading {
+    color: #EF6F53  ;
+    text-align: center;
+    font-size: 1.75rem;
+    font-weight: bold;
+    letter-spacing: 0.05rem;
+    margin-bottom: 1rem;
+    margin-top: 1rem;
+}
+
+.error-message {
+    background-color: #f8d7da;
+    color: #c62828;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.success-message {
+    background-color: #d4edda;
+    color: #2e7d32;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.permissions-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.permissions-heading {
+    color: #364C63;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.permissions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.permission-item {
+    display: flex;
+    align-items: center;
+}
+
+.permission-item input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+
+.permission-item input[type="checkbox"]:disabled + span {
+    color: #6c757d;
+}
+
+.create-team-heading,
+.create-user-heading {
+    color: #EF6F53  ;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    letter-spacing: 0.05rem;
+    margin-bottom: 1rem;
+}
+
+.team-inputt {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.team-inputt input {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+
+
+.create-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 8vw;
+    background-color: #2196f3;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    margin-top: 10px;
+    margin: auto;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.create-button:hover {
+    background-color: #007bff;
+    transform: translateY(2px); 
+}
+
+.user-formm {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.user-inputs {
+    display: flex;
+    flex-direction: row;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.user-inputs input,
+.user-inputs select {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    flex: 1;
+    min-width: 180px;
+    max-width: 250px;
+}
+
+.permissions {
+    width: 100%;
+    margin-top: 0;
+}
+
+.permissions-heading {
+    color: #EF6F53;
+    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 0.05rem;
+    margin-bottom: 1rem;
+    margin-top: 0;
+}
+
+.permission-item {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    margin-right: 25px;
+    margin-bottom: 10px;
+}
+
+.permission-item label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.permission-item select {
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+    margin-right: 5px;
+    width: 60px;
+}
+
+.permissions {
+    background-color: #f5f5f5;
+    padding: 15px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 5px;
+    overflow-x: auto;
+}
+
+.permission-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.permission-item label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.permission-item select {
+    padding: 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 60px;
+    background-color: white;
+}
+
+.users-list {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+}
+
+.team-section {
+    background: white;
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.business-head-section {
+    border-left: 4px solid #EF6F53;
+}
+
+.role-section {
+    margin: 0.5rem 0;
+    padding-left: 1rem;
+}
+
+.role-label {
+    font-weight: 600;
+    color: #364C63;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.team-name {
+    color: #364C63;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 0.5rem 0;
+    margin-bottom: 0.25rem;
+    border-bottom: 2px solid #EF6F53;
+}
+
+.user-row {
+    display: flex;
+    padding: 1px;
+    border-bottom: 1px solid #eee;
+}
+
+.user-row:last-child {
+    border-bottom: none;
+}
+
+.user-row.header {
+    font-weight: bold;
+    background-color: #f8f9fa;
+    border-radius: 4px 4px 0 0;
+    color: #364C63;
+}
+
+.user-col {
+    flex: 1;
+    padding: 0 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+
+.permission-item {
+    display: inline-block;
+    color: #666;
+}
+
+.user-row:hover {
+    background-color: #f8f8f8;
+}
+
+.create-buttonn{    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 8vw;
+    background-color: #2196f3;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    margin-top: 10px;
+    margin: auto;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.create-buttonn:hover{
+    background-color: #007bff;
+    transform: translateY(2px); 
+}
+
+@media (max-width: 768px) {
+    .users-list {
+        grid-template-columns: 1fr;
+    }
+}

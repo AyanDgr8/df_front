@@ -16,7 +16,7 @@ const Landing = () => {
                 />
             </div>
             <div className="landing-content">
-                <h2 className="landing-heading">Welcome to FundFloat CRM</h2>
+                <h2 className="landing-heading">Welcome to DigitalFlow CRM</h2>
                 <Link to="/login" className="continue-link">
                     Click to continue
                 </Link>

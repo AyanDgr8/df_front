@@ -178,6 +178,30 @@
     border-color: #EF6F53;  
 }
 
+
+
+.add-field-btnnn {
+  display: flex;
+  width: 8vw;
+  background-color: #EF6F53;
+  color: white;
+  border: none;
+  padding: 0.25rem;
+  font-size: 0.75rem;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: auto;
+  align-items:center ;
+  justify-content: center;
+  
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.add-field-btnnn:hover{
+  background-color: #f8360b;
+  transform: translateY(2px); 
+}
+
 /* Responsive styles for screens between 901px and 1280px */
 @media only screen and (min-width: 901px) and (max-width: 1280px) {
     .use-form-container {

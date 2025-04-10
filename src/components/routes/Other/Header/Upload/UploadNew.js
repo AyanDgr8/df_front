@@ -1,20 +1,24 @@
 // src/components/routes/Other/Header/Upload/UploadNew.js
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Papa from 'papaparse';
 import { useNavigate } from "react-router-dom";
 import * as XLSX from 'xlsx';
+import axios from 'axios';
 import "./UploadNew.css";
 
 const UploadNew = () => {
     const [systemHeaders] = useState([
-        "first_name", "last_name", "phone_no",
-        "whatsapp_num", "email_id", "yt_email_id", 
-        "agent_name", "course", "age_group", "gender",
-        "mentor", "followup_count", "profession", 
-        "investment_trading", "why_choose", "language", 
-        "education", "region", "designation",
-        "disposition", "comment",
+        "loan_card_no", "CRN", "c_name", "product",
+        "bank_name", "banker_name",
+        "agent_name", "tl_name",
+        "fl_supervisor", "DPD_vintage",
+        "POS", "emi_AMT", "loan_AMT",
+        "paid_AMT", "paid_date", "settl_AMT",
+        "shots", "resi_address", "pincode",
+        "office_address", "mobile", "ref_mobile",
+        "calling_code", "calling_feedback",
+        "field_feedback", "new_track_no", "field_code"
     ]);
     const [fileHeaders, setFileHeaders] = useState([]);
     const [headerMapping, setHeaderMapping] = useState({});
@@ -29,27 +33,33 @@ const UploadNew = () => {
 
     // Header mapping from system headers to frontend labels
     const headerLabels = {
-        'first_name': 'First Name *',
-        'last_name': 'Last Name',
-        'phone_no': 'Phone *',
-        'whatsapp_num': 'WhatsApp No',
-        'email_id': 'Email *',
-        'yt_email_id': 'Youtube Email',
+        'loan_card_no': 'Loan Card No',
+        'CRN': 'CRN',
+        'c_name': 'Customer Name *',
+        'product': 'Product',
+        'bank_name': 'Bank Name',
+        'banker_name': 'Banker Name',
         'agent_name': 'Agent Name *',
-        'age_group': 'Age Group',
-        'mentor': 'Mentor',
-        'designation': 'Designation',
-        'region': 'Region',
-        'language': 'Language',
-        'education': 'Education',
-        'profession': 'Profession',
-        'why_choose': 'Why Choose Us',
-        'gender': 'Gender',
-        'course': 'Course',
-        'investment_trading': 'Investment Trading',
-        'followup_count': 'Followup Count',
-        'disposition': 'Disposition',
-        'comment': 'Comment'
+        'tl_name': 'TL Name',
+        'fl_supervisor': 'FL Supervisor',
+        'DPD_vintage': 'DPD Vintage',
+        'POS': 'POS',
+        'emi_AMT': 'EMI Amount',
+        'loan_AMT': 'Loan Amount',
+        'paid_AMT': 'Paid Amount',
+        'paid_date': 'Paid Date',
+        'settl_AMT': 'Settlement Amount',
+        'shots': 'Shots',
+        'resi_address': 'Residence Address',
+        'pincode': 'Pincode',
+        'office_address': 'Office Address',
+        'mobile': 'Mobile *',
+        'ref_mobile': 'Reference Mobile',
+        'calling_code': 'Calling Code',
+        'calling_feedback': 'Calling Feedback',
+        'field_feedback': 'Field Feedback',
+        'new_track_no': 'New Track No',
+        'field_code': 'Field Code'
     };
 
     // Helper function to convert empty values to null
@@ -87,17 +97,11 @@ const UploadNew = () => {
     const validateData = (data) => {
         const errors = [];
         data.forEach((row, index) => {
-            const mappedPhone = headerMapping['phone_no'] ? row[headerMapping['phone_no']] : null;
-            const mappedEmail = headerMapping['email_id'] ? row[headerMapping['email_id']] : null;
+            const mappedPhone = headerMapping['mobile'] ? row[headerMapping['mobile']] : null;
 
             // Validate phone number
             if (mappedPhone && !validatePhoneNumber(mappedPhone)) {
                 errors.push(`Row ${index + 1}: Invalid phone number "${mappedPhone}". Phone numbers must be numeric and maximum 12 digits.`);
-            }
-
-            // Validate email
-            if (mappedEmail && !validateEmail(mappedEmail)) {
-                errors.push(`Row ${index + 1}: Invalid email "${mappedEmail}".`);
             }
         });
         return errors;
@@ -117,11 +121,11 @@ const UploadNew = () => {
 
             // Check file extension
             const fileName = file.name.toLowerCase();
-            const validExtensions = ['.xlsx', '.csv'];
+            const validExtensions = ['.xlsx', '.csv', '.xls'];
             const isValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
             
             if (!isValidExtension) {
-                alert('Please upload only .xlsx or .csv files');
+                alert('Please upload only .xlsx, .xls or .csv files');
                 e.target.value = ''; // Clear the file input
                 return;
             }
@@ -212,7 +216,7 @@ const UploadNew = () => {
     const handleUpload = async () => {
         try {
             // Validate that all required fields are mapped
-            const requiredFields = ["first_name", "phone_no", "email_id", "agent_name"];
+            const requiredFields = ["c_name", "mobile", "agent_name"];
             const missingFields = requiredFields.filter(field => !headerMapping[field]);
             
             if (missingFields.length > 0) {
@@ -279,12 +283,15 @@ const UploadNew = () => {
 
     // Handle final confirmation
     const handleConfirmation = async (proceed) => {
-        if (proceed) {
-            setIsUploading(true);
-        }
         try {
             if (!uploadId) {
                 setError('No upload ID found. Please try uploading again.');
+                return;
+            }
+
+            // Check if there are any unique records when trying to proceed
+            if (proceed && (!uploadResult?.uniqueRecords || uploadResult.uniqueRecords === 0)) {
+                setError('Cannot proceed with upload: No unique records found. All records are duplicates.');
                 return;
             }
 
@@ -297,7 +304,10 @@ const UploadNew = () => {
                 },
                 body: JSON.stringify({
                     uploadId,
-                    proceed
+                    proceed,
+                    headerMapping,
+                    customerData: proceed ? customerData : [], // Send data only if proceeding
+                    uploadResult // Include the original upload result
                 }),
             });
 
@@ -313,20 +323,12 @@ const UploadNew = () => {
                 navigate('/customers');
             } else {
                 alert('Upload cancelled by user');
+                navigate('/customers');
             }
 
-            // Clear the form state
-            setSelectedFileName(null);
-            setHeaderMapping({});
-            setCustomerData([]);
-            setUploadResult(null);
-            setUploadId(null);
-            setShowDuplicates(false);
-
-        } catch (err) {
-            setError(err.message || 'An error occurred during confirmation');
-        } finally {
-            setIsUploading(false);
+        } catch (error) {
+            console.error('Confirmation error:', error);
+            setError(error.message || 'Failed to process upload confirmation');
         }
     };
 
@@ -354,7 +356,7 @@ const UploadNew = () => {
                 <input
                     type="file"
                     onChange={handleFileChange}
-                    accept=".csv,.xlsx"
+                    accept=".csv,.xlsx,.xls"
                     className="file-input"
                 />
                 {/* {selectedFileName && (
@@ -429,9 +431,8 @@ const UploadNew = () => {
                                 <tbody>
                                     {uploadResult.duplicates.map((record, index) => (
                                         <tr key={index}>
-                                            <td>{`${record[headerMapping['first_name']] || ''} ${record[headerMapping['last_name']] || ''}`}</td>
-                                            <td>{record[headerMapping['phone_no']] || ''}</td>
-                                            <td>{record[headerMapping['email_id']] || ''}</td>
+                                            <td>{`${record[headerMapping['c_name']] || ''}`}</td>
+                                            <td>{record[headerMapping['mobile']] || ''}</td>
                                         </tr>
                                     ))}
                                 </tbody>

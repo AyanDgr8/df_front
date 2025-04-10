@@ -10,39 +10,44 @@ import LastChanges from "../LastChange/LastChange";
 const UseForm = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { phone_no } = useParams();
+    const { mobile } = useParams();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
-    const [isSuper, setIsSuper] = useState(false);
     const [error, setError] = useState(null); 
     const [customer, setCustomer] = useState(null);
     const [availableAgents, setAvailableAgents] = useState([]); 
     const alertShownRef = useRef(false); // Use a ref to track if the alert has been shown
 
     const [formData, setFormData] = useState({
-        first_name: '',
-        last_name: '',
-        course: '',
-        age_group: '',
-        profession: '',
-        investment_trading: '',
-        why_choose: '',
-        language: '',
-        education: '',
-        region: '', 
-        designation:'',
-        phone_no: '',
-        whatsapp_num: '',
-        email_id: '',
-        yt_email_id: '',
-        gender: '',
-        disposition: '',
-        mentor: '',
-        comment: '',
-        scheduled_at: '',
+        loan_card_no: '',
+        c_name: '',
+        product: '',
+        CRN: '',
+        bank_name: '',
+        banker_name: '',
         agent_name: '',
-        followup_count: '',
+        tl_name: '',
+        fl_supervisor: '',
+        DPD_vintage: '',
+        POS: '',
+        emi_AMT: '',
+        loan_AMT: '',
+        paid_AMT: '',
+        paid_date: '',
+        settl_AMT: '',
+        shots: '',
+        resi_address: '',
+        pincode: '',
+        office_address: '',
+        mobile: '',
+        ref_mobile: '',
+        calling_code: 'WN',
+        calling_feedback: '',
+        field_feedback: '',
+        new_track_no: '',
+        field_code: 'ANF',
+        scheduled_at: '',
     });
 
     const [updatedData, setUpdatedData] = useState(formData);
@@ -52,27 +57,27 @@ const UseForm = () => {
         return value.replace(/\D/g, '').slice(0, 12);
     };
 
-    const validateAgeGroup = (value) => {
-        // Remove non-digits and limit to 2 digits
-        return value.replace(/\D/g, '').slice(0, 2);
-    };
-
-    const validatePhoneNumberLength = (phoneNumber) => {
-        const digitsOnly = phoneNumber.replace(/\D/g, '');
-        return digitsOnly.length >= 9 && digitsOnly.length <= 12;
+    const validatePhoneNumberLength = (mobile, ref_mobile) => {
+        // Convert to string and handle null/undefined
+        const mobileStr = String(mobile || '');
+        const refMobileStr = String(ref_mobile || '');
+        
+        const digitsOnly = mobileStr.replace(/\D/g, '');
+        const refDigitsOnly = refMobileStr.replace(/\D/g, '');
+        
+        return digitsOnly.length >= 9 && digitsOnly.length <= 12 && 
+               refDigitsOnly.length >= 9 && refDigitsOnly.length <= 12;
     };
 
     const validateRequiredFields = () => {
-        const requiredFields = ['first_name', 'phone_no', 'email_id'];
-        const missingFields = requiredFields.filter(field => !formData[field]?.trim());
+        const requiredFields = ['c_name', 'mobile', 'ref_mobile'];
+        const missingFields = requiredFields.filter(field => {
+            const value = formData[field];
+            return !value || (typeof value === 'string' && !value.trim());
+        });
         
         if (missingFields.length > 0) {
-            const fieldNames = missingFields.map(field => 
-                field.split('_').map(word => 
-                    word.charAt(0).toUpperCase() + word.slice(1)
-                ).join(' ')
-            ).join(', ');
-            alert(`Please fill in the required fields: ${fieldNames}`);
+            setError(`Please fill in all required fields: ${missingFields.join(', ')}`);
             return false;
         }
         return true;
@@ -82,7 +87,7 @@ const UseForm = () => {
         const { name, value } = e.target;
         
         // For phone numbers, only allow digits and limit to 12 digits
-        if (name === 'phone_no' || name === 'whatsapp_num') {
+        if (name === 'mobile') {
             const validatedValue = validatePhoneNumber(value);
             setFormData(prev => ({
                 ...prev,
@@ -93,22 +98,11 @@ const UseForm = () => {
                 [name]: validatedValue
             }));
         } 
-        // For age_group, limit to 2 digits
-        else if (name === 'age_group') {
-            const validatedValue = validateAgeGroup(value);
-            setFormData(prev => ({
-                ...prev,
-                [name]: validatedValue
-            }));
-            setUpdatedData(prev => ({
-                ...prev,
-                [name]: validatedValue
-            }));
-        }
+
         // For comment field, check character limit
-        else if (name === 'comment') {
-            if (value.length > 1000) {
-                alert('Comment cannot exceed 1000 characters');
+        else if (name === 'calling_feedback' || name === 'field_feedback') {
+            if (value.length > 500) {
+                alert('Comment cannot exceed 500 characters');
                 return;
             }
             setFormData(prev => ({
@@ -139,9 +133,8 @@ const UseForm = () => {
             
             // Only check for duplicates if these fields have changed
             const fieldsToCheck = {};
-            if (updatedFormData.phone_no !== customer.phone_no) fieldsToCheck.phone_no = updatedFormData.phone_no;
-            if (updatedFormData.whatsapp_num !== customer.whatsapp_num) fieldsToCheck.whatsapp_num = updatedFormData.whatsapp_num;
-            if (updatedFormData.email_id !== customer.email_id) fieldsToCheck.email_id = updatedFormData.email_id;
+            if (updatedFormData.mobile !== customer.mobile) fieldsToCheck.mobile = updatedFormData.mobile;
+            if (updatedFormData.ref_mobile !== customer.ref_mobile) fieldsToCheck.ref_mobile = updatedFormData.ref_mobile;
 
             if (Object.keys(fieldsToCheck).length === 0) return true; // No fields to check
 
@@ -188,39 +181,36 @@ const UseForm = () => {
             try {
                 const token = localStorage.getItem('token');
                 const apiUrl = process.env.REACT_APP_API_URL;
+
+                // First get the current user's data
                 const userResponse = await axios.get(`${apiUrl}/current-user`, {
-                    headers: { 
+                    headers: {
                         Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json", 
-                    },
-                });
-                console.log(userResponse.data); // Log user data
-                setUser(userResponse.data);
-                
-                // Check if the user is an admin (check both role and isAdmin flag)
-                const isAdminUser = userResponse.data.role === 'Super_Admin' || userResponse.data.role === 'Department_Admin' || userResponse.data.isAdmin;
-
-                setIsAdmin(isAdminUser);
-                console.log("Is admin:", isAdminUser);
-
-                // If user is admin, fetch available agents
-                if (isAdminUser) {
-                    try {
-                        const agentsResponse = await axios.get(`${apiUrl}/users`, {
-                            headers: { 
-                                Authorization: `Bearer ${token}`,
-                                "Content-Type": "application/json", 
-                            },
-                        });
-                        console.log("Available agents:", agentsResponse.data);
-                        setAvailableAgents(agentsResponse.data); // Updated to use direct response data
-                    } catch (error) {
-                        console.error('Error fetching available agents:', error);
+                        'Content-Type': 'application/json'
                     }
+                });
+
+                setUser(userResponse.data);
+                setIsAdmin(userResponse.data.role === 'it_admin' || userResponse.data.role === 'super_admin');
+
+                // Then get the available agents based on user's role
+                try {
+                    const agentsResponse = await axios.get(`${apiUrl}/players/teams`, {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    setAvailableAgents(agentsResponse.data);
+                } catch (error) {
+                    console.error('Error fetching available agents:', error);
+                    setError('Failed to fetch available agents');
                 }
+
             } catch (error) {
-                setError('Failed to fetch user data.');
-                console.error('Error fetching user data:', error);
+                console.error('Error in fetchUser:', error);
+                setError('Failed to fetch user data');
+                setLoading(false);
             }
         };
 
@@ -233,11 +223,11 @@ const UseForm = () => {
                 setCustomer(location.state.customer);
                 setFormData(location.state.customer);
                 setLoading(false);
-            } else if (phone_no) {
+            } else if (mobile) {
                 try {
                     const apiUrl = process.env.REACT_APP_API_URL;
                     const token = localStorage.getItem('token');
-                    const response = await axios.get(`${apiUrl}/customers/phone/${phone_no}`, {
+                    const response = await axios.get(`${apiUrl}/customers/phone/${mobile}`, {
                         headers: { 
                             Authorization: `Bearer ${token}`,
                             "Content-Type": "application/json", 
@@ -247,13 +237,13 @@ const UseForm = () => {
                         setCustomer(response.data.customer);
                         setFormData(response.data.customer);
                     } else {
-                        navigate(`/customer/new/${phone_no}`, { state: { phone_no } });
+                        navigate(`/customer/new/${mobile}`, { state: { mobile } });
                     }
                 } catch (error) {
                     if (!alertShownRef.current && error.response?.status === 404) {
                         alert("Customer not found. Redirecting to create a new customer.");
                         alertShownRef.current = true;
-                        navigate(`/customer/new/${phone_no}`, { state: { phone_no } });
+                        navigate(`/customer/new/${mobile}`, { state: { mobile } });
                     } else {
                         console.error(error);
                     }
@@ -264,7 +254,7 @@ const UseForm = () => {
         };
 
         fetchCustomerData();
-    }, [location.state?.customer, phone_no, navigate]);
+    }, [location.state?.customer, mobile, navigate]);
 
 
     const handleDelete = async () => {
@@ -303,7 +293,7 @@ const UseForm = () => {
         }
 
         // Validate phone number length
-        if (!validatePhoneNumberLength(formData.phone_no)) {
+        if (!validatePhoneNumberLength(formData.mobile, formData.ref_mobile)) {
             alert('Phone number must be between 9 and 12 digits');
             return;
         }
@@ -400,35 +390,73 @@ const UseForm = () => {
                         {/* Your input fields */}
                         {[
                             { 
-                                label: "First Name", 
-                                name: "first_name",
-                                required: true 
+                                label: "Loan Card No", name: "loan_card_no", disabled: true
                             },
-                            { label: "Last Name", name: "last_name" },
                             { 
-                                label: "Phone", 
-                                name: "phone_no", 
-                                type: "tel", 
-                                disabled: !isAdmin, 
-                                maxLength: "12",
-                                required: true 
+                                label: "CRN", name: "CRN", disabled: true 
                             },
-                            { label: "WhatsApp No", name: "whatsapp_num", type: "tel", maxLength: "12" },
                             { 
-                                label: "Email", 
-                                name: "email_id",
-                                type: "email",
-                                required: true
+                                label: "Customer Name", name: "c_name",disabled: true 
                             },
-                            { label: "Youtube Email", name: "yt_email_id", type: "email" },
-                            { label: "Age Group", name: "age_group", maxLength: "2" },
-                            { label: "Mentor", name: "mentor" },
-                            { label: "Designation", name: "designation" },
-                            { label: "Region", name: "region" },
-                            { label: "Language", name: "language" },
-                            { label: "Education", name: "education" },
-                            { label: "Profession"  , name: "profession" },
-                            { label: "Why Choose Us", name: "why_choose" },
+                            { 
+                                label: "Product", name: "product",disabled: true 
+                            },
+                            { 
+                                label: "Bank Name", name: "bank_name", disabled: true 
+                            },
+                            { 
+                                label: "Banker Name", name: "banker_name",disabled: true 
+                            },
+                            { 
+                                label: "Mobile", name: "mobile", type: "tel", 
+                                maxLength: "12",disabled: true 
+                            },
+                            { 
+                                label: "Ref Mobile", name: "ref_mobile", type: "tel", 
+                                maxLength: "12",disabled: true  
+                            },
+                            { 
+                                label: "TL Name", name: "tl_name", disabled: true 
+                            },
+                            { 
+                                label: "FM / Supervisor", name: "fl_supervisor",disabled: true 
+                            },
+                            { 
+                                label: "DPD / Vintage", name: "DPD_vintage",disabled: true 
+                            },
+                            {
+                                label: "POS", name: "POS",disabled: true 
+                            },
+                            {
+                                label: "EMI Amount", name: "emi_AMT", disabled: true 
+                            },
+                            {
+                                label: "Loan Amount", name: "loan_AMT", disabled: true 
+                            },
+                            {
+                                label: "Paid Amount", name: "paid_AMT", required: true 
+                            },
+                            {
+                                label: "Paid Date", name: "paid_date", type: "date", required: true 
+                            },
+                            {
+                                label: "Settlement Amount", name: "settl_AMT", required: true ,
+                            },
+                            {
+                                label: "Shots", name: "shots", required: true 
+                            },
+                            { 
+                                label: "Resi Address", name: "resi_address",required: true ,disabled: true 
+                            },
+                            { 
+                                label: "Pincode", name: "pincode",required: true ,disabled: true 
+                            },
+                            { 
+                                label: "Office Address", name: "office_address",required: true ,disabled: true 
+                            },
+                            { 
+                                label: "New Tracing No", name: "new_track_no",required: true 
+                            },
                         ].map(({ label, name, type = "text", disabled, maxLength, required }) => (
                             <div key={name} className="label-input">
                                 <label>{label}{required && <span className="required"> *</span>}:</label>
@@ -443,93 +471,42 @@ const UseForm = () => {
                             </div>
                         ))}
 
-                        {/* Gender Dropdown */}
+                        {/* Agent Name Field */}
                         <div className="label-input">
-                            <label>Gender:</label>
-                            <select name="gender" value={formData.gender} onChange={handleInputChange}>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
+                            <label>Agent Name:</label>
+                            <input
+                                type="text"
+                                name="agent_name"
+                                value={formData.agent_name || ''}
+                                disabled
+                                className="agent-input"
+                            />
+                        </div>
+
+                        {/* calling_code Dropdown */}
+                        <div className="label-input">
+                            <label>Calling Code:</label>
+                            <select name="calling_code" value={formData.calling_code} onChange={handleInputChange}>
+                                <option value="WN">WN</option>
+                                <option value="NC">NC</option>   
+                                <option value="CB">CB</option>
+                                <option value="PTP">PTP</option>
+                                <option value="RTP">RTP</option>
                             </select>
                         </div>
 
-                        {/* Agent Name Dropdown - Only visible to admin */}
-                        {isAdmin && (
-                            <div className="label-input">
-                                <label>Assign Agent<span className="required"> *</span>:</label>
-                                <select 
-                                    name="agent_name" 
-                                    value={formData.agent_name || ''} 
-                                    onChange={handleInputChange}
-                                >
-                                    {/* <option value="">Select Agent</option> */}
-                                    {availableAgents.map((agent) => (
-                                        <option key={agent.id} value={agent.username}>
-                                            {agent.username}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                        {!isAdmin && formData.agent_name && (
-                            <div className="label-input">
-                                <label>Assigned Agent:</label>
-                                <input
-                                    type="text"
-                                    value={formData.agent_name || ''}
-                                    disabled
-                                    className="agent-input"
-                                />
-                            </div>
-                        )}
-
-                        {/* Disposition Dropdown */}
+                        {/* field_code Dropdown */}
                         <div className="label-input">
-                            <label>Disposition:</label>
-                            <select name="disposition" value={formData.disposition} onChange={handleInputChange}>
-                                <option value="interested">Interested</option>
-                                <option value="not interested">Not Interested</option>
-                                <option value="needs to call back">Needs to Call Back</option>
-                                <option value="switched off">Switched Off</option>
-                                <option value="ringing no response">Ringing No Response</option>
-                                <option value="follow-up">Follow-Up</option>
-                                <option value="invalid number">Invalid Number</option>
-                                <option value="whatsapp number">Whatsapp Number</option>
-                                <option value="converted">Converted</option>
-                                <option value="referral">Referral</option>
+                            <label>Field Code:</label>
+                            <select name="field_code" value={formData.field_code} onChange={handleInputChange}>
+                                <option value="ANF">ANF</option>
+                                <option value="SKIP">SKIP</option>   
+                                <option value="RTP">RTP</option>
+                                <option value="REVISIT">REVISIT</option>
+                                <option value="PTP">PTP</option>
                             </select>
                         </div>
 
-                        {/* Investment Trading Dropdown */}
-                        <div className="label-input">
-                            <label>Investment Trading:</label>
-                            <select name="investment_trading" value={formData.investment_trading} onChange={handleInputChange}>
-                                <option value="investment">Investment</option>
-                                <option value="trading">Trading</option>
-                            </select>
-                        </div>
-
-                        {/* Course Dropdown */}
-                        <div className="label-input">
-                            <label>Course:</label>
-                            <select name="course" value={formData.course} onChange={handleInputChange}>
-                                <option value="elite_program">Elite Program</option>
-                                <option value="extra_earners">Extra Earners</option>
-                                <option value="advanced_TFL">Advanced TFL</option>
-                            </select>
-                        </div>
-
-                        {/* Follow-up Dropdown */}
-                        <div className="label-input">
-                            <label>Follow-Up:</label>
-                            <select name="followup_count" value={formData.followup_count} onChange={handleInputChange}>
-                                <option value="followup-1">Followup 1</option>
-                                <option value="followup-2">Followup 2</option>
-                                <option value="followup-3">Followup 3</option>
-                                <option value="followup-4">Followup 4</option>
-                                <option value="followup-5">Followup 5</option>
-                            </select>
-                        </div>
 
                         {/* Schedule Call  */}
                         <div className="label-input">
@@ -546,16 +523,31 @@ const UseForm = () => {
                             />
                         </div>
 
-                        {/* Comment Section */}
+                        {/* Calling Feedback Section */}
                         <div className="label-input comment">
-                            <label>Comment:</label>
+                            <label>Calling Feedback:</label>
                             <div className="textarea-container">
                                 <textarea
-                                    name="comment"
-                                    value={formData.comment}
+                                    name="calling_feedback"
+                                    value={formData.calling_feedback}
                                     onChange={handleInputChange}
                                     rows="6"
-                                    placeholder="Max 1000 characters"
+                                    placeholder="Max 500 characters"
+                                    className="comet"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Field Feedback Section */}
+                        <div className="label-input comment">
+                            <label>Field Feedback:</label>
+                            <div className="textarea-container">
+                                <textarea
+                                    name="field_feedback"
+                                    value={formData.field_feedback}
+                                    onChange={handleInputChange}
+                                    rows="6"
+                                    placeholder="Max 500 characters"
                                     className="comet"
                                 />
                             </div>
@@ -563,20 +555,23 @@ const UseForm = () => {
 
                         <button className="sbt-use-btn" type="submit">Update</button>
                     </form>
-                    {/* {isAdmin && (  
+                    {isAdmin && (  
                         <button 
                             onClick={handleDelete} 
-                            className="add-field-btnnnn"
+                            className="add-field-btnnn"
                             aria-label="Delete customer"
                         >
                             Delete Record
                         </button>
-                    )} */}
+                    )}
                 </div>
 
                 <div>
                     {/* Pass customerId to LastChanges */}
-                    <LastChanges customerId={customer.id} originalData={customer} updatedData={updatedData} />
+                    <LastChanges 
+                        customerId={customer?.id || ''} 
+                        mobile={formData?.mobile || ''}
+                    />
                 </div>
             </div>
 

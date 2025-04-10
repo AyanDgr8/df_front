@@ -1,3 +1,5 @@
+// src/components/routes/Other/Header/Download/DownloadFile.js
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
@@ -10,7 +12,59 @@ const DownloadFile = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [data, setData] = useState([]);
+    const [filteredData, setFilteredData] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const navigate = useNavigate();
+    const [user, setUser] = useState(null);
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const apiUrl = process.env.REACT_APP_API_URL;
+                const userResponse = await axios.get(`${apiUrl}/current-user`, {
+                    headers: { 
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+                
+                setUser(userResponse.data);
+                console.log('User data:', userResponse.data);
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+                navigate('/login');
+            }
+        };
+
+        fetchUser();
+    }, [navigate]);
+
+    // Filter data when search term changes
+    useEffect(() => {
+        if (!data.length) {
+            setFilteredData([]);
+            return;
+        }
+
+        if (!searchTerm) {
+            setFilteredData(data);
+            return;
+        }
+
+        const searchTermLower = searchTerm.toLowerCase();
+        const filtered = data.filter(item => {
+            return (
+                (item.c_name?.toLowerCase().includes(searchTermLower)) ||
+                (item.mobile?.toString().includes(searchTerm)) ||
+                (item.loan_card_no?.toLowerCase().includes(searchTermLower)) ||
+                (item.agent_name?.toLowerCase().includes(searchTermLower)) ||
+                (item.bank_name?.toLowerCase().includes(searchTermLower))
+            );
+        });
+
+        setFilteredData(filtered);
+    }, [searchTerm, data]);
 
     const isValidDateRange = () => {
         if (!startDate || !endDate) return false;
@@ -44,40 +98,45 @@ const DownloadFile = () => {
     };
 
     const getColumnOrder = () => [
-        'C_unique_id', 'first_name', 'last_name', 'phone_no', 
-        'whatsapp_num', 'email_id', 'yt_email_id', 'gender', 
-        'age_group', 'agent_name', 'course', 'profession', 
-        'education', 'designation', 
-        'region', 'language',  'investment_trading', 
-        'why_choose', 'disposition', 'mentor',
-        'followup_count',
-        'comment', 'scheduled_at', 'date_created', 'last_updated'
+        'loan_card_no','CRN', 'c_name',
+        'product', 'bank_name', 'banker_name', 
+        'mobile', 'ref_mobile','agent_name', 
+        'tl_name', 'fl_supervisor', 'DPD_vintage',
+        'POS', 'emi_AMT', 'loan_AMT', 'paid_AMT', 'paid_date',
+        'settl_AMT', 'shots', 'resi_address', 'pincode', 'office_address',
+        'calling_code', 'calling_feedback', 'field_feedback', 'new_track_no', 'field_code',
+        'scheduled_at', 'date_created', 'last_updated'
     ];
 
     const getColumnHeader = (key) => {
         const headers = {
-            'C_unique_id': 'Customer ID',
-            'first_name': 'First Name',
-            'last_name': 'Last Name',
-            'phone_no': 'Phone Number',
-            'whatsapp_num': 'WhatsApp Number',
-            'email_id': 'Email',
-            'yt_email_id': 'YouTube Email',
-            'gender': 'Gender',
-            'age_group': 'Age Group',
+            'loan_card_no': 'Loan Card No',
+            'CRN': 'CRN',
+            'c_name': 'Customer Name',
+            'product': 'Product',
+            'bank_name': 'Bank Name',
+            'banker_name': 'Banker Name',
+            'mobile': 'Mobile',
+            'ref_mobile': 'Ref Mobile',
             'agent_name': 'Agent Name',
-            'profession': 'Profession',
-            'education': 'Education',
-            'designation': 'Designation',
-            'region': 'Region',
-            'language': 'Language',
-            'course': 'Course',
-            'investment_trading': 'Investment Trading',
-            'why_choose': 'Why Choose',
-            'disposition': 'Disposition',
-            'followup_count': 'Followup Count',
-            'mentor': 'Mentor',
-            'comment': 'Comment',
+            'tl_name': 'TL Name',
+            'fl_supervisor': 'FL Supervisor',
+            'DPD_vintage': 'DPD Vintage',
+            'POS': 'POS',
+            'emi_AMT': 'EMI Amount',
+            'loan_AMT': 'Loan Amount',
+            'paid_AMT': 'Paid Amount',
+            'paid_date': 'Paid Date',
+            'settl_AMT': 'Settlement Amount',
+            'shots': 'Shots',
+            'resi_address': 'Residence Address',
+            'pincode': 'Pincode',
+            'office_address': 'Office Address',
+            'calling_code': 'Calling Code',
+            'calling_feedback': 'Calling Feedback',
+            'field_feedback': 'Field Feedback',
+            'new_track_no': 'New Track No',
+            'field_code': 'Field Code',
             'scheduled_at': 'Scheduled At',
             'date_created': 'Created Date',
             'last_updated': 'Last Updated'
@@ -86,52 +145,43 @@ const DownloadFile = () => {
     };
 
     const fetchData = async () => {
-        if (!isValidDateRange()) return;
-
+        setLoading(true);
+        setError(null);
+        
         try {
-            setLoading(true);
-            setError('');
-            const token = localStorage.getItem('token');
+            // Set the end time to end of day
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+
             const apiUrl = process.env.REACT_APP_API_URL;
-
-            // Format dates in the consistent format
-            const formattedStartDate = formatDateTime(startDate);
-            const formattedEndDate = formatDateTime(endDate);
-
-            console.log('Sending dates:', { formattedStartDate, formattedEndDate });
-
-            const response = await axios.get(`${apiUrl}/download-data`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const response = await axios.get(`${apiUrl}/customers/date-range`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
                 params: {
-                    startDate: formattedStartDate,
-                    endDate: formattedEndDate
+                    startDate: start.toISOString(),
+                    endDate: end.toISOString()
                 }
             });
 
-            if (response.status !== 200 || !response.data) {
-                throw new Error(response.data?.message || 'Failed to fetch data');
+            console.log('Response:', response.data);
+
+            if (response.data.success) {
+                const records = response.data.data || [];
+                setData(records);
+                
+                if (records.length === 0) {
+                    setError('No records found in the selected date range');
+                } else {
+                    console.log(`Found ${records.length} records between ${start.toLocaleString()} and ${end.toLocaleString()}`);
+                }
+            } else {
+                setError(response.data.message || 'Error fetching data');
             }
-
-            if (!Array.isArray(response.data) || response.data.length === 0) {
-                console.log('No data returned from backend');
-                setError('No data found for the selected date range');
-                setData([]);
-                return;
-            }
-
-            // Format the response data using the same date format
-            const formattedData = response.data.map(row => ({
-                ...row,
-                date_created: formatDateTime(row.date_created),
-                last_updated: formatDateTime(row.last_updated),
-                scheduled_at: formatDateTime(row.scheduled_at)
-            }));
-
-            setData(formattedData);
-            setError('');
         } catch (error) {
             console.error('Error fetching data:', error);
-            setError(error.response?.data?.message || error.message || 'Error fetching data. Please try again.');
+            setError(error.response?.data?.message || 'Error fetching data');
             setData([]);
         } finally {
             setLoading(false);
@@ -142,22 +192,19 @@ const DownloadFile = () => {
         if (startDate && endDate) {
             fetchData();
         }
-    }, [startDate, endDate]);
+    }, [startDate, endDate]); // Re-fetch when dates change
 
-    const handleDateChange = (setter) => (e) => {
+    const handleDateChange = setter => e => {
         setter(e.target.value);
-        setError('');
     };
 
     const handleScheduleddAtClick = (e) => {
-        // Remove readonly temporarily to allow picker to show
-        e.target.readOnly = false;
-        e.target.showPicker();
-        // Add an event listener to make it readonly again after selection
-        e.target.addEventListener('blur', function onBlur() {
-            e.target.readOnly = true;
-            e.target.removeEventListener('blur', onBlur);
-        });
+        e.preventDefault();
+        const now = new Date();
+        const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+            .toISOString()
+            .slice(0, 16);
+        e.target.value = localDateTime;
     };
 
     const handleDownload = () => {
@@ -190,9 +237,24 @@ const DownloadFile = () => {
         }
     };
 
+    const handleSearch = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    // Check if user has permission based on role
+    const hasDownloadPermission = user && (
+        ['super_admin', 'it_admin', 'business_head', 'team_leader'].includes(user.role) ||
+        (user.permissions && user.permissions.download_data)
+    );
+
+    if (!hasDownloadPermission) {
+        return <div className="error-message">You do not have permission to access this page.</div>;
+    }
+
     return (
         <div className="download-page">
             <h2 className="download-heading">Download Customer Data</h2>
+            
             <div className="date-picker-container">
                 <div className="date-picker-wrapper">
                     <label htmlFor="start-date">Start Date and Time *</label>
@@ -203,9 +265,6 @@ const DownloadFile = () => {
                         onChange={handleDateChange(setStartDate)}
                         className="datetime-input"
                         required
-                        onClick={handleScheduleddAtClick}
-                        onKeyDown={(e) => e.preventDefault()}
-                        style={{ cursor: 'pointer' }}
                     />
                 </div>
                 <div className="date-picker-wrapper">
@@ -217,9 +276,6 @@ const DownloadFile = () => {
                         onChange={handleDateChange(setEndDate)}
                         className="datetime-input"
                         required
-                        onClick={handleScheduleddAtClick}
-                        onKeyDown={(e) => e.preventDefault()}
-                        style={{ cursor: 'pointer' }}
                     />
                 </div>
             </div>
@@ -228,8 +284,19 @@ const DownloadFile = () => {
             
             {loading ? (
                 <div className="loading-message">Loading data...</div>
-            ) : data.length > 0 ? (
+            ) : filteredData.length > 0 ? (
                 <>
+                    {user?.role === 'super_admin' && (
+                        <div className="search-container">
+                            <input
+                                type="text"
+                                placeholder="Search by name, mobile, loan card, agent, or bank..."
+                                value={searchTerm}
+                                onChange={handleSearch}
+                                className="search-input"
+                            />
+                        </div>
+                    )}
                     <div className="data-table-container">
                         <table className="data-table">
                             <thead>
@@ -240,7 +307,7 @@ const DownloadFile = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {data.map((row, index) => (
+                                {filteredData.map((row, index) => (
                                     <tr key={index}>
                                         {getColumnOrder().map((key) => (
                                             <td key={key}>{formatTableValue(row[key])}</td>
@@ -250,6 +317,10 @@ const DownloadFile = () => {
                             </tbody>
                         </table>
                     </div>
+                    <div className="table-info">
+                        <span>Total Records: {filteredData.length}</span>
+                        {searchTerm && <span> (Filtered from {data.length} records)</span>}
+                    </div>
                     <button 
                         className="download-btn" 
                         onClick={handleDownload}
@@ -258,7 +329,11 @@ const DownloadFile = () => {
                         Download as Excel
                     </button>
                 </>
-            ) : null}
+            ) : (
+                <div className="no-data-message">
+                    {startDate && endDate ? 'No data available for the selected date range.' : 'Please select a date range to view data.'}
+                </div>
+            )}
         </div>
     );
 };

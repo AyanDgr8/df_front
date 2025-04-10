@@ -17,6 +17,9 @@ const SearchForm = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [userRole, setUserRole] = useState('');
+  const [teamId, setTeamId] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -32,29 +35,37 @@ const SearchForm = () => {
         });
         setUser(userResponse.data);
         
-        // Check if user is admin
-        const userRole = userResponse.data.role;
-        const isAdminUser = userRole === 'Super_Admin' || userRole === 'Department_Admin';
+        // Set user role and check admin status
+        const role = userResponse.data.role.toLowerCase();
+        setUserRole(role);
+        const isAdminUser = ['super_admin', 'it_admin', 'business_head'].includes(role);
         setIsAdmin(isAdminUser);
         
-        // If user is MIS, redirect to upload page
-        if (userRole === 'MIS') {
-          navigate('/upload-customer-data');
-          return;
+        // Store team ID if user is team_leader
+        if (role === 'team_leader') {
+          setTeamId(userResponse.data.team_id);
         }
 
         // Fetch team users if admin
         if (isAdminUser) {
-          const teamResponse = await axios.get(`${apiUrl}/users`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          // Filter out non-team users (like admins)
-          const teamUsers = teamResponse.data.filter(user => 
-            user.role !== 'Super_Admin' && 
-            user.role !== 'Department_Admin' && 
-            user.role !== 'MIS'
-          );
-          setTeamUsers(teamUsers);
+          try {
+            const teamResponse = await axios.get(`${apiUrl}/team-users`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (teamResponse.data && Array.isArray(teamResponse.data)) {
+              // Filter out admin roles
+              const teamUsers = teamResponse.data.filter(user => 
+                !['super_admin', 'it_admin', 'business_head', 'team_leader'].includes(user.role.toLowerCase())
+              );
+              setTeamUsers(teamUsers);
+            } else {
+              setTeamUsers([]);
+            }
+          } catch (teamError) {
+            console.error('Error fetching team users:', teamError);
+            setTeamUsers([]);
+          }
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -74,13 +85,12 @@ const SearchForm = () => {
         const searchQuery = query.get('query');
         
         if (!searchQuery) {
-          setError('No search query provided');
+          setResults([]);
+          setTotalCount(0);
           setLoading(false);
           return;
         }
 
-        console.log('Fetching search results for:', searchQuery); // Debug log
-        
         const token = localStorage.getItem('token');
         if (!token) {
           setError('Authentication required');
@@ -89,31 +99,55 @@ const SearchForm = () => {
         }
 
         const apiUrl = process.env.REACT_APP_API_URL;
-        const response = await axios.get(`${apiUrl}/customers/search?query=${searchQuery}`, {
+        
+        // Build search URL based on user role
+        let searchUrl = `${apiUrl}/customers/search?query=${searchQuery}`;
+        
+        // Add role-specific parameters
+        if (userRole === 'team_leader' && teamId) {
+          searchUrl += `&team_id=${teamId}`;
+        } else if (userRole === 'user') {
+          searchUrl += `&agent_id=${user.id}`;
+        }
+        // super_admin, it_admin, and business_head get unfiltered results
+
+        const response = await axios.get(searchUrl, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
 
-        console.log('Search results:', response.data); // Debug log
-        
+        // Handle both array and object response formats
         if (Array.isArray(response.data)) {
           setResults(response.data);
+          setTotalCount(response.data.length);
+        } else if (response.data && typeof response.data === 'object') {
+          if (response.data.success && Array.isArray(response.data.data)) {
+            setResults(response.data.data);
+            setTotalCount(response.data.count || response.data.data.length);
+          } else {
+            setResults([]);
+            setTotalCount(0);
+          }
         } else {
           console.error('Unexpected response format:', response.data);
           setError('Invalid response format from server');
+          setResults([]);
+          setTotalCount(0);
         }
       } catch (error) {
         console.error('Search error:', error.response || error);
         setError(error.response?.data?.message || 'Error fetching search results');
+        setResults([]);
+        setTotalCount(0);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [location.search]);
+  }, [location.search, userRole, teamId, user]);
 
   const handleEdit = (customer) => {
     navigate('/customers/phone/' + customer.phone_no, { state: { customer } });
@@ -280,16 +314,18 @@ const SearchForm = () => {
                       />
                     </th>
                   )}
-                  <th>ID</th>
+                  <th>CRN</th>
+                  <th>Loan No/ Card No</th>
                   <th>Customer Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Region</th>
-                  <th>Disposition</th>
-                  <th>Gender</th>
-                  <th>Investment Trading</th>
-                  <th>Agent Assigned</th>
-                  <th>Last Updated</th>
+                  <th>Product</th>
+                  <th>Bank Name</th>
+                  <th>Agent Name</th>
+                  <th>DPD Vintage</th>
+                  <th>POS</th>
+                  <th>EMI Amount</th>
+                  <th>Loan Amount</th>
+                  <th>Mobile</th>
+                  <th>Paid Amount</th>
               </tr>
             </thead>
             <tbody className="customer-body">
@@ -312,16 +348,18 @@ const SearchForm = () => {
                       />
                     </td>
                   )}
-                  <td>{customer.C_unique_id}</td>
-                  <td className="customer-name">{customer.first_name} {customer.last_name}</td>
-                  <td>{customer.email_id}</td>
-                  <td><a href={`tel:${customer.phone_no}`}>{customer.phone_no}</a></td>
-                  <td>{customer.region}</td>
-                  <td>{customer.disposition}</td>
-                  <td>{customer.gender}</td>
-                  <td>{customer.investment_trading}</td>
+                  <td>{customer.CRN}</td>
+                  <td className="customer-name">{customer.c_name} </td>
+                  <td><a href={`tel:${customer.mobile}`}>{customer.mobile}</a></td>
+                  <td>{customer.product}</td>
+                  <td>{customer.bank_name}</td>
                   <td>{customer.agent_name}</td>
-                  <td>{formatDateTime(customer.last_updated)}</td>
+                  <td>{customer.DPD_vintage}</td>
+                  <td>{customer.POS}</td>
+                  <td>{customer.emi_AMT}</td>
+                  <td>{customer.loan_AMT}</td>
+                  <td>{customer.mobile}</td>
+                  <td>{customer.paid_AMT}</td>
                 </tr>
               ))}
             </tbody>
@@ -345,9 +383,9 @@ const SearchForm = () => {
               </button>
             )}
 
-            {[...Array(Math.ceil(results.length / recordsPerPage)).keys()].map((_, idx) => idx + 1)
+            {[...Array(Math.ceil(totalCount / recordsPerPage)).keys()].map((_, idx) => idx + 1)
               .filter((pageNumber) => {
-                const totalPages = Math.ceil(results.length / recordsPerPage);
+                const totalPages = Math.ceil(totalCount / recordsPerPage);
                 return (
                   pageNumber === 1 ||
                   pageNumber === totalPages ||
@@ -355,7 +393,7 @@ const SearchForm = () => {
                 );
               })
               .map((pageNumber, index, array) => {
-                const isGap = array[index + 1] !== pageNumber + 1 && pageNumber !== Math.ceil(results.length / recordsPerPage);
+                const isGap = array[index + 1] !== pageNumber + 1 && pageNumber !== Math.ceil(totalCount / recordsPerPage);
                 return (
                   <React.Fragment key={pageNumber}>
                     <button
@@ -370,7 +408,7 @@ const SearchForm = () => {
                 );
               })}
 
-            {currentPage < Math.ceil(results.length / recordsPerPage) && (
+            {currentPage < Math.ceil(totalCount / recordsPerPage) && (
               <button
                 onClick={() => paginate(currentPage + 1)}
                 className="page-number"

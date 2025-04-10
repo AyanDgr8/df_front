@@ -6,82 +6,99 @@ import { useNavigate, useParams } from "react-router-dom";
 import "./CreateForm.css";
 
 const CreateForm = () => {
-  const { phone_no } = useParams();
-  const [newCustomer, setNewCustomer] = useState({
-    first_name: '',
-    last_name: '',
-    course: 'Elite Program',
-    age_group: '',
-    profession: '',
-    investment_trading: 'Investment',
-    why_choose: '',
-    language: '',
-    education: '',
-    region: '', 
-    designation:'',
-    phone_no: '',
-    whatsapp_num: '',
-    email_id: '',
-    yt_email_id: '',
-    gender: 'male',
-    disposition: 'interested',
-    comment: '',
+  const { mobile } = useParams();
+  const [formData, setFormData] = useState({
+    loan_card_no: '',
+    CRN: '',
+    c_name: '',
+    product: '',
+    bank_name: '',
+    banker_name: '',
+    mobile: '',
+    ref_mobile: '',
     agent_name: '',
+    tl_name: '',
+    fl_supervisor: '',
+    DPD_vintage: '',
+    POS: '',
+    emi_AMT: '',
+    loan_AMT: '',
+    paid_AMT: '',
+    paid_date: '',
+    settl_AMT: '',
+    shots: '',
+    resi_address: '',
+    pincode: '',
+    office_address: '',
+    new_track_no: '',
+    calling_code: 'WN',
+    field_code: 'ANF',
+    scheduled_at: '',
+    calling_feedback: '',
+    field_feedback: ''
   });
 
   const [formSuccess, setFormSuccess] = useState(false);
   const navigate = useNavigate();
 
-  // Fetch current user when component mounts
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const token = localStorage.getItem('token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+
         const apiUrl = process.env.REACT_APP_API_URL;
         const response = await axios.get(`${apiUrl}/current-user`, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
-        
-        // Set the agent_name to the current user's username
-        setNewCustomer(prev => ({
+
+        // Set agent name in form data
+        setFormData(prev => ({
           ...prev,
-          agent_name: response.data.username
+          agent_name: response.data.name
         }));
+
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error('Error fetching user:', error);
+        navigate('/login');
       }
     };
 
     fetchUser();
-  }, []);
+  }, [navigate]);
 
-  // Handle input change
-  const handleChange = (e) => {
-    setNewCustomer({
-      ...newCustomer,
-      [e.target.name]: e.target.value,
-    });
+  // Handle input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle scheduled_at click
+  const handleScheduledAtClick = () => {
+    // Optional: Add any special handling for the datetime-local input
+    console.log('Scheduling a call');
   };
 
   // Handle form submission
-  const handleAddRecord = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const apiUrl = process.env.REACT_APP_API_URL;
-      const phoneNumber = newCustomer.phone_no;
-      
-      if (!phoneNumber) {
-        alert("Phone number is required");
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert("Authentication token not found");
         return;
       }
 
-      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL;
       const response = await axios.post(
-        `${apiUrl}/customer/new/${phoneNumber}`, 
-        newCustomer,
+        `${apiUrl}/customers/new`, 
+        formData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -93,153 +110,192 @@ const CreateForm = () => {
       console.log(response.data);
       setFormSuccess(true);
       alert("Record added successfully!");
-      setNewCustomer({
-        first_name: '',
-        last_name: '',
-        course: 'Elite Program',
-        age_group: '',
-        profession: '',
-        investment_trading: 'Investment',
-        why_choose: '',
-        language: '',
-        education: '',
-        region: '', 
-        designation:'',
-        phone_no: '',
-        whatsapp_num: '',
-        email_id: '',
-        yt_email_id: '',
-        gender: 'male',
-        disposition: 'interested',
-        comment: '',
-        agent_name: newCustomer.agent_name, // Preserve the agent_name
+      
+      // Reset form
+      setFormData({
+        ...formData,
+        paid_AMT: '',
+        paid_date: '',
+        settl_AMT: '',
+        shots: '',
+        new_track_no: '',
+        calling_code: 'WN',
+        field_code: 'ANF',
+        scheduled_at: '',
+        calling_feedback: '',
+        field_feedback: ''
       });
-      navigate("/customers");
+
+      // Navigate to list view
+      navigate('/customers');
 
     } catch (error) {
-      if (error.response && error.response.data) {
-        if (error.response.data.errors) {
-          // Display each backend error as an alert
-          const backendErrors = error.response.data.errors;
-          Object.values(backendErrors).forEach((message) => {
-            alert(`Error: ${message}`);
-          });
-        } else {
-          // Show the main error message from the backend response, if available
-          alert(`${error.response.data.message || "Failed to add record. Please try again."}`);
-        }
-      } else {
-        // Display a generic error if there's no detailed error response
-        alert(`Failed to add record: ${error.message}`);
-      }
-      console.error("Error adding record:", error); // Log the error for debugging
+      console.error('Error adding record:', error);
+      alert('Error adding record. Please try again.');
     }
   };
 
-  // // Function to handle navigation to home
-  // const handleHomeClick = () => {
-  //   navigate('/customers');
-  // }
-
   return (
     <div>
-        <h2 className="create_form_headiii">Create New Customer</h2>
-        <div className="create-form-container">
-          <form onSubmit={handleAddRecord}>
-            {/* Your input fields */}
-            {[
-              { label: "First Name:", name: "first_name",required: true },
-              { label: "Last Name:", name: "last_name" },
-              { label: "Phone:", name: "phone_no",required: true},
-              { label: "WhatsApp:", name: "whatsapp_num" },
-              { label: "Email:", name: "email_id" },
-              { label: "Youtube Email:", name: "yt_email_id" },
-              { label: "Designation:", name: "designation" },
-              { label: "Region:", name: "region" },
-              { label: "Language:", name: "language" },
-              { label: "Education:", name: "education" },
-              { label: "Profession:", name: "profession" },
-              { label: "Why Choose:", name: "why_choose" },
-              { label: "Age Group:", name: "age_group" },
-            ].map(({ label, name, type = "text", disabled = false, required = false }) => (
-              <div className="label-input" key={name}>
-                <label>{label}</label>
-                <input
-                  type={type}
-                  name={name}
-                  value={newCustomer[name]}
-                  onChange={handleChange}
-                  disabled={disabled}
-                  required={required} 
-                />
-              </div>
-            ))}
-
-            {/* Gender Dropdown */}
-            <div className="label-input">
-              <label>Gender:</label>
-                <select name="gender" value={newCustomer.gender} onChange={handleChange}>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
+      <h2 className="create_form_headiii">Create New Customer</h2>
+      <div className="create-form-container">
+        <form onSubmit={handleSubmit}>
+          {[
+            { 
+              label: "Loan Card No", name: "loan_card_no", 
+            },
+            { 
+              label: "CRN", name: "CRN",  
+            },
+            { 
+              label: "Customer Name", name: "c_name", 
+            },
+            { 
+              label: "Product", name: "product", 
+            },
+            { 
+              label: "Bank Name", name: "bank_name", 
+            },
+            { 
+              label: "Banker Name", name: "banker_name", 
+            },
+            { 
+              label: "Mobile", name: "mobile", type: "tel", 
+              maxLength: "12", 
+            },
+            { 
+              label: "Ref Mobile", name: "ref_mobile", type: "tel", 
+              maxLength: "12",  
+            },
+            { 
+              label: "TL Name", name: "tl_name", 
+            },
+            { 
+              label: "FM / Supervisor", name: "fl_supervisor", 
+            },
+            { 
+              label: "DPD / Vintage", name: "DPD_vintage", 
+            },
+            {
+              label: "POS", name: "POS", 
+            },
+            {
+              label: "EMI Amount", name: "emi_AMT", 
+            },
+            {
+              label: "Loan Amount", name: "loan_AMT", 
+            },
+            {
+              label: "Paid Amount", name: "paid_AMT", 
+            },
+            {
+              label: "Paid Date", name: "paid_date", type: "date" 
+            },
+            {
+              label: "Settlement Amount", name: "settl_AMT", 
+            },
+            {
+              label: "Shots", name: "shots", 
+            },
+            { 
+              label: "Resi Address", name: "resi_address",
+            },
+            { 
+              label: "Pincode", name: "pincode", 
+            },
+            { 
+              label: "Office Address", name: "office_address",  
+            },
+            { 
+              label: "New Tracing No", name: "new_track_no",  required: true 
+            }
+          ].map(({ label, name, type = "text", maxLength, required }) => (
+            <div key={name} className="label-input">
+              <label>{label}{required && <span className="required"> *</span>}:</label>
+              <input
+                type={type}
+                name={name}
+                value={formData[name] || ''}
+                onChange={handleInputChange}
+                maxLength={maxLength}
+              />
             </div>
+          ))}
 
-            {/* Course Dropdown */}
-            <div className="label-input">
-                <label>Course:</label>
-                <select name="course" value={newCustomer.course} onChange={handleChange}>
-                    <option value="Elite Program">Elite Program</option>
-                    <option value="Extra Earners">Extra Earners</option>
-                    <option value="Advanced TFL">Advanced TFL</option>
-                </select>
+          {/* calling_code Dropdown */}
+          <div className="label-input">
+            <label>Calling Code:</label>
+            <select name="calling_code" value={formData.calling_code} onChange={handleInputChange}>
+              <option value="WN">WN</option>
+              <option value="NC">NC</option>   
+              <option value="CB">CB</option>
+              <option value="PTP">PTP</option>
+              <option value="RTP">RTP</option>
+            </select>
+          </div>
+
+          {/* field_code Dropdown */}
+          <div className="label-input">
+            <label>Field Code:</label>
+            <select name="field_code" value={formData.field_code} onChange={handleInputChange}>
+              <option value="ANF">ANF</option>
+              <option value="SKIP">SKIP</option>   
+              <option value="RTP">RTP</option>
+              <option value="REVISIT">REVISIT</option>
+              <option value="PTP">PTP</option>
+            </select>
+          </div>
+
+          {/* Schedule Call  */}
+          <div className="label-input">
+            <label>Schedule Call:</label>
+            <input
+              type="datetime-local"
+              name="scheduled_at"
+              value={formData.scheduled_at}
+              onChange={handleInputChange}
+              onKeyDown={(e) => e.preventDefault()}
+              onClick={handleScheduledAtClick}
+              style={{ cursor: 'pointer' }}
+              className="sche_input"
+            />
+          </div>
+
+          {/* Calling Feedback Section */}
+          <div className="label-input comment">
+            <label>Calling Feedback:</label>
+            <div className="textarea-container">
+              <textarea
+                name="calling_feedback"
+                value={formData.calling_feedback}
+                onChange={handleInputChange}
+                rows="6"
+                placeholder="Max 1000 characters"
+                className="comet"
+              />
             </div>
+          </div>
 
-            {/* Disposition Dropdown */}
-            <div className="label-input">
-                <label>Disposition:</label>
-                <select name="disposition" value={newCustomer.disposition} onChange={handleChange}>
-                    <option value="interested">Interested</option>
-                    <option value="not interested">Not Interested</option>
-                    <option value="needs to call back">Needs to Call Back</option>
-                    <option value="switched off">Switched Off</option>
-                    <option value="ringing no response">Ringing No Response</option>
-                    <option value="follow-up">Follow-Up</option>
-                    <option value="invalid number">Invalid Number</option>
-                </select>
+          {/* Field Feedback Section */}
+          <div className="label-input comment">
+            <label>Field Feedback:</label>
+            <div className="textarea-container">
+              <textarea
+                name="field_feedback"
+                value={formData.field_feedback}
+                onChange={handleInputChange}
+                rows="6"
+                placeholder="Max 1000 characters"
+                className="comet"
+              />
             </div>
+          </div>
 
-            {/* Investment Trading Dropdown */}
-            <div className="label-input">
-                <label>Investment Trading:</label>
-                <select name="investment_trading" value={newCustomer.investment_trading} onChange={handleChange}>
-                    <option value="Investment">Investment</option>
-                    <option value="Trading">Trading</option>
-                </select>
-            </div>
-
-            {/* Comment Section */}
-            <div className="label-input comment">
-              <label>Comment:</label>
-              <div className="textarea-container">
-                <textarea
-                  name="comment"
-                  value={newCustomer.comment}
-                  onChange={handleChange}
-                  rows="2"
-                  placeholder="Enter any additional comments"
-                  className="comet"
-                />
-              </div>
-            </div>
-
-            <button type="submit" className="submit-btn">
-              Add Customer
-            </button>
-          </form>
-        </div>
-      {/* Updated button to navigate to /customers
-      <button className="add-home-btn"onClick={handleHomeClick}>Home</button> */}
+          <button type="submit" className="submit-btn">
+            Add Customer
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

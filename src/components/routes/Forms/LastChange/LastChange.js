@@ -4,35 +4,45 @@ import React, { useState, useEffect } from "react";
 import axios from "axios"; // Import axios for making API requests
 import "./LastChange.css";
 
-const LastChanges = ({ customerId, phone_no }) => {
+const LastChanges = ({ customerId, mobile }) => {
   const [changes, setChanges] = useState([]);
 
   useEffect(() => {
     const fetchChangeHistory = async () => {
       if (!customerId) {
-        console.error("No customerId provided."); // Keep this for debugging
-        return; // Exit if customerId is not provided
+        console.log('Waiting for customer ID...');
+        return;
       }
 
       try {
         const token = localStorage.getItem('token');
-        const apiUrl = process.env.REACT_APP_API_URL; // Get the base URL from the environment variable
+        const apiUrl = process.env.REACT_APP_API_URL;
+        console.log('Fetching changes for customer:', customerId);
+        
         const response = await axios.get(
           `${apiUrl}/customers/log-change/${customerId}`,
           {
-            headers: { 
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
+            headers: { Authorization: `Bearer ${token}` }
           }
         );
-        console.log('Change history response:', response.data); // Log the entire response to see its structure
-        setChanges(response.data.changeHistory); // Assuming the response structure includes changeHistory
+
+        if (response.data?.changeHistory) {
+          console.log('Found changes:', response.data.changeHistory.length);
+          setChanges(response.data.changeHistory);
+        } else if (response.data?.changes) {
+          // Handle response from updateCustomer
+          console.log('Found changes from update:', response.data.changes.length);
+          setChanges(response.data.changes);
+        } else {
+          console.log('No changes found in response');
+          setChanges([]);
+        }
       } catch (error) {
         console.error("Error fetching change history:", error);
         if (error.response?.status === 403) {
           console.error("Authorization error:", error.response.data);
         }
+        setChanges([]);
       }
     };
 
@@ -41,15 +51,16 @@ const LastChanges = ({ customerId, phone_no }) => {
   
   useEffect(() => {
     const makeUpdates = async () => {
-      if (!phone_no) {
-        console.error("No phone_no provided."); // Keep this for debugging
-        return; // Exit if customerId is not provided
+      if (!mobile || mobile === '') {
+        console.log("Waiting for mobile number...");
+        return;
       }
+      console.log('Making updates for mobile:', mobile);
       try {
         const token = localStorage.getItem('token');
         const apiUrl = process.env.REACT_APP_API_URL; // Get the base URL from the environment variable
         const response = await axios.patch(
-          `${apiUrl}/customers/phone/${phone_no}/updates`,
+          `${apiUrl}/customers/phone/${mobile}/updates`,
           {},
           {
             headers: { 
@@ -69,32 +80,38 @@ const LastChanges = ({ customerId, phone_no }) => {
     };
 
     makeUpdates();
-  }, [phone_no]); 
+  }, [mobile]); // Only run when mobile changes
 
   // Field name mapping
   const fieldLabels = {
-    'first_name': 'First Name',
-    'last_name': 'Last Name',
-    'phone_no': 'Phone',
-    'whatsapp_num': 'WhatsApp No',
-    'email_id': 'Email',
-    'yt_email_id': 'Youtube Email',
-    'age_group': 'Age',
-    'mentor': 'Mentor',
-    'designation': 'Designation',
-    'region': 'Region',
-    'language': 'Language',
-    'education': 'Education',
-    'profession': 'Profession',
-    'why_choose': 'Why Choose Us',
-    'gender': 'Gender',
+    'loan_card_no': 'Loan Card No',
+    'c_name': 'Customer Name',
+    'product': 'Product',
+    'CRN': 'CRN',
+    'bank_name': 'Bank Name',
+    'banker_name': 'Banker Name',
     'agent_name': 'Assigned Agent',
-    'investment_trading': 'Investment Trading',
-    'followup_count': 'Followup Count',
-    'disposition': 'Disposition',
-    'course': 'Course',
+    'tl_name': 'TL Name',
+    'fl_supervisor': 'FL Supervisor',
+    'DPD_vintage': 'DPD Vintage',
+    'POS': 'POS',
+    'emi_AMT': 'EMI Amount',
+    'loan_AMT': 'Loan Amount',
+    'paid_AMT': 'Paid Amount',
+    'paid_date': 'Paid Date',
+    'settl_AMT': 'Settlement Amount',
+    'shots': 'Shots',
+    'resi_address': 'Residence Address',
+    'pincode': 'Pincode',
+    'office_address': 'Office Address',
+    'mobile': 'Mobile',
+    'ref_mobile': 'Reference Mobile',
+    'calling_code': 'WN',
+    'calling_feedback': 'Calling Feedback',
+    'field_feedback': 'Field Feedback',
+    'new_track_no': 'New Track No',
+    'field_code': 'Field Code',
     'scheduled_at': 'Call Scheduler',
-    'comment': 'Comment', 
 
   };
 
