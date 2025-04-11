@@ -208,7 +208,7 @@ const Header = () => {
                         </div>
                         <div className="profile-section">
                             <img 
-                                src="/uploads/fundfloat.webp"
+                                src="/uploads/MultyLogo.png"
                                 className="pro-icon"
                                 alt="profile icon"
                                 aria-label="Profile"

@@ -38,6 +38,10 @@ const ListForm = () => {
 
         // Get permissions from stored user data
         const userPermissions = userData.permissions || [];
+        // Add view_customer permission if user is an admin role
+        if (['super_admin', 'it_admin', 'business_head'].includes(userData.role)) {
+          userPermissions.push('view_customer');
+        }
         console.log('User stored permissions:', userPermissions);
         setPermissions(userPermissions.reduce((acc, perm) => ({ ...acc, [perm]: true }), {}));
 
@@ -295,6 +299,38 @@ const ListForm = () => {
     navigate("/customer/new"); 
   };
 
+  // Add handleDeleteSelected function
+  const handleDeleteSelected = async () => {
+    if (!selectedCustomers.length) return;
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedCustomers.length} selected records?`)) {
+      try {
+        const token = localStorage.getItem('token');
+        const customerIds = selectedCustomers.map(c => c.id);
+        
+        const response = await axios.post(`${apiUrl}/customers/delete-multiple`, 
+          { customerIds },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        // Remove deleted customers from state
+        setCustomers(prev => prev.filter(c => !customerIds.includes(c.id)));
+        setSelectedCustomers([]);
+        
+        // Show success alert
+        alert(`Successfully deleted ${customerIds.length} records!`);
+      } catch (error) {
+        console.error('Error deleting customers:', error);
+        setError('Failed to delete selected records');
+      }
+    }
+  };
+
   return (
     <div className="list-form-container">
       {loading ? (
@@ -320,22 +356,23 @@ const ListForm = () => {
                             />
                           </th>
                         )}
+                        <th>S.no.</th>
                         <th>Loan No/ Card No</th>
+                        <th>Mobile</th>
                         <th>CRN</th>
                         <th>Customer Name</th>
                         <th>Product</th>
                         <th>Bank Name</th>
-                        <th>Agent Name</th>
                         <th>DPD Vintage</th>
                         <th>POS</th>
                         <th>EMI Amount</th>
                         <th>Loan Amount</th>
-                        <th>Mobile</th>
                         <th>Paid Amount</th>
+                        <th>Agent Name</th>
                       </tr>
                     </thead>
                     <tbody className="customer-body">
-                      {currentCustomers.map((customer) => (
+                      {currentCustomers.map((customer, index) => (
                         <tr 
                           key={customer.id} 
                           onClick={(e) => {
@@ -355,18 +392,19 @@ const ListForm = () => {
                               />
                             </td>
                           )}
+                          <td>{(currentPage - 1) * customersPerPage + index + 1}</td>
                           <td>{customer.loan_card_no}</td>
+                          <td><a href={`tel:${customer.mobile}`}>{customer.mobile}</a></td>
                           <td>{customer.CRN}</td>
                           <td>{customer.c_name}</td>
                           <td>{customer.product}</td>
                           <td>{customer.bank_name}</td>
-                          <td>{customer.agent_name}</td>
                           <td>{customer.DPD_vintage}</td>
                           <td>{customer.POS}</td>
                           <td>{customer.emi_AMT}</td>
                           <td>{customer.loan_AMT}</td>
-                          <td><a href={`tel:${customer.mobile}`}>{customer.mobile}</a></td>
                           <td>{customer.paid_AMT}</td>
+                          <td>{customer.agent_name}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -377,9 +415,16 @@ const ListForm = () => {
               )}
             </div>
 
-            {/* Team assignment controls for admin */}
+            {/* Team assignment and delete controls for admin */}
             {canAssignTeam && (
               <div className="team-assignment-controls">
+                <button 
+                  onClick={handleDeleteSelected}
+                  className="delete-selected-btn"
+                  disabled={selectedCustomers.length === 0}
+                >
+                  Delete Selected
+                </button>
                 <select 
                   value={selectedTeamUser}
                   onChange={(e) => setSelectedTeamUser(e.target.value)}

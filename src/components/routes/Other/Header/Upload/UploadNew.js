@@ -9,15 +9,12 @@ import "./UploadNew.css";
 
 const UploadNew = () => {
     const [systemHeaders] = useState([
-        "loan_card_no", "CRN", "c_name", "product",
-        "bank_name", "banker_name",
-        "agent_name", "tl_name",
-        "fl_supervisor", "DPD_vintage",
-        "POS", "emi_AMT", "loan_AMT",
-        "paid_AMT", "paid_date", "settl_AMT",
-        "shots", "resi_address", "pincode",
-        "office_address", "mobile", "ref_mobile",
-        "calling_code", "calling_feedback",
+        "loan_card_no", "c_name", "product", "CRN", 
+        "bank_name", "banker_name", "agent_name", "tl_name", 
+        "fl_supervisor", "DPD_vintage", "POS", "emi_AMT", 
+        "loan_AMT", "paid_AMT", "paid_date", "settl_AMT", 
+        "shots", "resi_address", "pincode", "office_address", 
+        "mobile", "ref_mobile", "calling_code", "calling_feedback", 
         "field_feedback", "new_track_no", "field_code"
     ]);
     const [fileHeaders, setFileHeaders] = useState([]);
@@ -33,10 +30,10 @@ const UploadNew = () => {
 
     // Header mapping from system headers to frontend labels
     const headerLabels = {
-        'loan_card_no': 'Loan Card No',
-        'CRN': 'CRN',
+        'loan_card_no': 'Loan Card No ',
         'c_name': 'Customer Name *',
         'product': 'Product',
+        'CRN': 'CRN',
         'bank_name': 'Bank Name',
         'banker_name': 'Banker Name',
         'agent_name': 'Agent Name *',
@@ -50,7 +47,7 @@ const UploadNew = () => {
         'paid_date': 'Paid Date',
         'settl_AMT': 'Settlement Amount',
         'shots': 'Shots',
-        'resi_address': 'Residence Address',
+        'resi_address': 'Residential Address',
         'pincode': 'Pincode',
         'office_address': 'Office Address',
         'mobile': 'Mobile *',
@@ -214,6 +211,9 @@ const UploadNew = () => {
 
     // Handle file upload
     const handleUpload = async () => {
+        setIsUploading(true);
+        setError(null);
+        
         try {
             // Validate that all required fields are mapped
             const requiredFields = ["c_name", "mobile", "agent_name"];
@@ -224,18 +224,22 @@ const UploadNew = () => {
                 return;
             }
 
-            // Additional validation to ensure agent_name is not empty in any row
-            const rowsWithMissingAgent = customerData
+            // Additional validation to ensure required fields are not empty in any row
+            const rowsWithMissingData = customerData
                 .map((row, index) => ({
                     row,
-                    index: index + 1
+                    index: index + 1,
+                    missingFields: requiredFields.filter(field => 
+                        !row[headerMapping[field]]?.toString().trim()
+                    )
                 }))
-                .filter(({row}) => !row[headerMapping['agent_name']]?.toString().trim());
+                .filter(({missingFields}) => missingFields.length > 0);
 
-            if (rowsWithMissingAgent.length > 0) {
-                setError(`Agent Name is required but missing in the following rows:\n${
-                    rowsWithMissingAgent.map(({index}) => `Row ${index}`).join(", ")
-                }`);
+            if (rowsWithMissingData.length > 0) {
+                const errorMessages = rowsWithMissingData.map(({index, missingFields}) => 
+                    `Row ${index}: Missing ${missingFields.map(field => headerLabels[field]).join(", ")}`
+                );
+                setError(`Required fields missing in some rows:\n${errorMessages.join("\n")}`);
                 return;
             }
 
@@ -262,40 +266,72 @@ const UploadNew = () => {
 
             const result = await response.json();
 
+            // Clear any existing error
+            setError(null);
+
             if (!response.ok) {
                 if (result.error === 'INVALID_AGENTS') {
                     const errorMessage = result.invalidAgents.map(item => 
                         `Row ${item.rowIndex}: Invalid agent name "${item.agentName}"`
                     ).join('\n');
-                    setError(`The following agent names are not valid department admins:\n${errorMessage}`);
+                    setError(`The following agent names are not valid:\n${errorMessage}`);
                     return;
                 }
                 throw new Error(result.message || 'Upload failed');
             }
 
-            setUploadResult(result);
+            // Set upload result regardless of duplicates
+            setUploadResult({
+                totalRecords: result.totalRecords,
+                duplicateCount: result.duplicateCount,
+                uniqueRecords: result.uniqueRecords,
+                duplicates: result.duplicates || [],
+                uploadId: result.uploadId
+            });
             setUploadId(result.uploadId);
-            setError("");
-        } catch (err) {
-            setError(err.message || 'An error occurred during upload');
+            
+            // Only show error if there are no unique records
+            if (result.uniqueRecords === 0) {
+                setError('Cannot proceed with upload: No unique records found. All records are duplicates.');
+            }
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            setError(error.message || 'Failed to upload file');
+        } finally {
+            setIsUploading(false);
         }
     };
 
     // Handle final confirmation
     const handleConfirmation = async (proceed) => {
+        if (proceed) {
+            setIsUploading(true);
+        }
         try {
             if (!uploadId) {
                 setError('No upload ID found. Please try uploading again.');
                 return;
             }
 
-            // Check if there are any unique records when trying to proceed
+            // Only proceed if we have unique records to upload
             if (proceed && (!uploadResult?.uniqueRecords || uploadResult.uniqueRecords === 0)) {
-                setError('Cannot proceed with upload: No unique records found. All records are duplicates.');
+                setError('Cannot proceed with upload: No unique records found.');
                 return;
             }
 
             const apiUrl = process.env.REACT_APP_API_URL;
+
+            // Filter out duplicate records
+            const uniqueRecordsToUpload = proceed ? customerData.filter(record => {
+                const recordMobile = record[headerMapping['mobile']]?.toString().trim();
+                
+                return !uploadResult.duplicates.some(duplicate => {
+                    const duplicateMobile = duplicate[headerMapping['mobile']]?.toString().trim();
+                    return duplicateMobile === recordMobile;
+                });
+            }) : [];
+
             const response = await fetch(`${apiUrl}/upload/confirm`, {
                 method: 'POST',
                 headers: {
@@ -306,8 +342,7 @@ const UploadNew = () => {
                     uploadId,
                     proceed,
                     headerMapping,
-                    customerData: proceed ? customerData : [], // Send data only if proceeding
-                    uploadResult // Include the original upload result
+                    customerData: uniqueRecordsToUpload
                 }),
             });
 
@@ -326,9 +361,18 @@ const UploadNew = () => {
                 navigate('/customers');
             }
 
-        } catch (error) {
-            console.error('Confirmation error:', error);
-            setError(error.message || 'Failed to process upload confirmation');
+            // Clear the form state
+            setSelectedFileName(null);
+            setHeaderMapping({});
+            setCustomerData([]);
+            setUploadResult(null);
+            setUploadId(null);
+            setShowDuplicates(false);
+
+        } catch (err) {
+            setError(err.message || 'An error occurred during confirmation');
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -424,14 +468,13 @@ const UploadNew = () => {
                                 <thead>
                                     <tr>
                                         <th>Name</th>
-                                        <th>Phone</th>
-                                        <th>Email</th>
+                                        <th>Mobile</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {uploadResult.duplicates.map((record, index) => (
                                         <tr key={index}>
-                                            <td>{`${record[headerMapping['c_name']] || ''}`}</td>
+                                            <td>{record[headerMapping['c_name']] || ''}</td>
                                             <td>{record[headerMapping['mobile']] || ''}</td>
                                         </tr>
                                     ))}
@@ -445,7 +488,7 @@ const UploadNew = () => {
                         <button 
                             onClick={() => handleConfirmation(true)}
                             className="btn btn-success"
-                            disabled={isUploading}
+                            disabled={isUploading || uploadResult.uniqueRecords === 0}
                         >
                             {isUploading ? 'Uploading...' : 'Yes, Upload'}
                         </button>
@@ -460,8 +503,11 @@ const UploadNew = () => {
                 </div>
             )}
 
-            {error && <div className="error-message">{error}</div>}
-
+            {error && (
+                <div className="error-message">
+                    {error}
+                </div>
+            )}
             </div>
         </div>
     );

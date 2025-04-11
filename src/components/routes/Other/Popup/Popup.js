@@ -75,8 +75,8 @@ const Popup = () => {
                         <div className="customer-details">
                             <p><strong>Name:</strong> {message.customer?.c_name}</p>
                             <p><strong>Loan Card:</strong> {message.customer?.loan_card_no}</p>
-                            <p><strong>CRN:</strong> {message.customer?.CRN}</p>
-                            <p><strong>Mobile:</strong> {message.customer?.mobile}</p>
+                            {/* <p><strong>CRN:</strong> {message.customer?.CRN}</p> */}
+                            {/* <p><strong>Mobile:</strong> {message.customer?.mobile}</p> */}
                             <p><strong>Agent:</strong> {message.customer?.agent_name || 'Not Assigned'}</p>
                             {message.customer?.team_name && (
                                 <p><strong>Team:</strong> {message.customer?.team_name}</p>

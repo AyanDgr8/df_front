@@ -30,7 +30,6 @@ const LastChanges = ({ customerId, mobile }) => {
           console.log('Found changes:', response.data.changeHistory.length);
           setChanges(response.data.changeHistory);
         } else if (response.data?.changes) {
-          // Handle response from updateCustomer
           console.log('Found changes from update:', response.data.changes.length);
           setChanges(response.data.changes);
         } else {
@@ -49,39 +48,6 @@ const LastChanges = ({ customerId, mobile }) => {
     fetchChangeHistory();
   }, [customerId]); // Fetch history whenever customerId changes
   
-  useEffect(() => {
-    const makeUpdates = async () => {
-      if (!mobile || mobile === '') {
-        console.log("Waiting for mobile number...");
-        return;
-      }
-      console.log('Making updates for mobile:', mobile);
-      try {
-        const token = localStorage.getItem('token');
-        const apiUrl = process.env.REACT_APP_API_URL; // Get the base URL from the environment variable
-        const response = await axios.patch(
-          `${apiUrl}/customers/phone/${mobile}/updates`,
-          {},
-          {
-            headers: { 
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        console.log('Updates response:', response.data); // Log the entire response to see its structure
-        setChanges(response.data.changeHistory); // Assuming the response structure includes changeHistory
-      } catch (error) {
-        console.error("Error updating history:", error);
-        if (error.response?.status === 403) {
-          console.error("Authorization error:", error.response.data);
-        }
-      }
-    };
-
-    makeUpdates();
-  }, [mobile]); // Only run when mobile changes
-
   // Field name mapping
   const fieldLabels = {
     'loan_card_no': 'Loan Card No',

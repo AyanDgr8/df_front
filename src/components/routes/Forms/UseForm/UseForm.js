@@ -338,27 +338,6 @@ const UseForm = () => {
                 }
             );
 
-            // Log the changes
-            await axios.post(
-                `${apiUrl}/customers/log-change`,
-                {
-                    customerId: customer.id,
-                    C_unique_id: customer.C_unique_id,
-                    changes: changes.map(change => ({
-                        field: change.field,
-                        old_value: change.old_value || null,
-                        new_value: change.new_value || null
-                    }))
-                },
-                {
-                    headers: { 
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json",
-                    },
-                }
-            );
-
-            console.log('Changes logged:', changes);
             setCustomer(formData);
             setFormData(formData);
             navigate("/customers");

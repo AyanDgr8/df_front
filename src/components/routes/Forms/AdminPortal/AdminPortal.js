@@ -54,6 +54,17 @@ const AdminPortal = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
+    useEffect(() => {
+        if (error) {
+            alert(error);
+            setError(null);
+        }
+        if (success) {
+            alert(success);
+            setSuccess(null);
+        }
+    }, [error, success]);
+
     // Fetch teams on component mount
     useEffect(() => {
         fetchTeams();
@@ -237,11 +248,6 @@ const AdminPortal = () => {
         <div className="admin-portal-container">
             <div className="admin-portal">
             <h2 className='admin-portal-heading'>Admin Portal</h2>
-            {/* Message display section */}
-            <div className="message-container">
-                {error && <div className="error-message">{error}</div>}
-                {!error && success && <div className="success-message">{success}</div>}
-            </div>
 
             <div className="sectionn">
                 <h3 className='create-team-heading'>Create Teams</h3>

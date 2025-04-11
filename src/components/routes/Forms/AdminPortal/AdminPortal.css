@@ -107,7 +107,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 8vw;
+    /* width: 8vw; */
     background-color: #2196f3;
     color: white;
     border: none;
@@ -304,7 +304,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 8vw;
+    /* width: 8vw; */
     background-color: #2196f3;
     color: white;
     border: none;
