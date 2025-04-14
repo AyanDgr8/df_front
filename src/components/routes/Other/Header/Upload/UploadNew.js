@@ -9,12 +9,13 @@ import "./UploadNew.css";
 
 const UploadNew = () => {
     const [systemHeaders] = useState([
-        "loan_card_no", "c_name", "product", "CRN", 
-        "bank_name", "banker_name", "agent_name", "tl_name", 
+        "c_name", "loan_card_no",  "CRN", "agent_name","mobile",
+        "product",  "bank_name", "banker_name",  "tl_name", 
         "fl_supervisor", "DPD_vintage", "POS", "emi_AMT", 
         "loan_AMT", "paid_AMT", "paid_date", "settl_AMT", 
         "shots", "resi_address", "pincode", "office_address", 
-        "mobile", "ref_mobile", "calling_code", "calling_feedback", 
+        "ref_mobile", "mobile_3", "mobile_4", "mobile_5", "mobile_6", "mobile_7", "mobile_8", 
+        "calling_code", "calling_feedback", 
         "field_feedback", "new_track_no", "field_code"
     ]);
     const [fileHeaders, setFileHeaders] = useState([]);
@@ -23,20 +24,21 @@ const UploadNew = () => {
     const [error, setError] = useState("");
     const [customerData, setCustomerData] = useState([]);
     const [uploadResult, setUploadResult] = useState(null);
-    const [showDuplicates, setShowDuplicates] = useState(false);
     const [uploadId, setUploadId] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [duplicateActions, setDuplicateActions] = useState({});
     const navigate = useNavigate();
 
     // Header mapping from system headers to frontend labels
     const headerLabels = {
-        'loan_card_no': 'Loan Card No ',
         'c_name': 'Customer Name *',
+        'loan_card_no': 'Loan Card No *',
+        'CRN': 'CRN *',
+        'agent_name': 'Agent Name *',
+        'mobile': 'Mobile *',
         'product': 'Product',
-        'CRN': 'CRN',
         'bank_name': 'Bank Name',
         'banker_name': 'Banker Name',
-        'agent_name': 'Agent Name *',
         'tl_name': 'TL Name',
         'fl_supervisor': 'FL Supervisor',
         'DPD_vintage': 'DPD Vintage',
@@ -50,8 +52,13 @@ const UploadNew = () => {
         'resi_address': 'Residential Address',
         'pincode': 'Pincode',
         'office_address': 'Office Address',
-        'mobile': 'Mobile *',
         'ref_mobile': 'Reference Mobile',
+        'mobile_3': 'Mobile 3',
+        'mobile_4': 'Mobile 4',
+        'mobile_5': 'Mobile 5',
+        'mobile_6': 'Mobile 6',
+        'mobile_7': 'Mobile 7',
+        'mobile_8': 'Mobile 8',
         'calling_code': 'Calling Code',
         'calling_feedback': 'Calling Feedback',
         'field_feedback': 'Field Feedback',
@@ -290,9 +297,11 @@ const UploadNew = () => {
             });
             setUploadId(result.uploadId);
             
-            // Only show error if there are no unique records
-            if (result.uniqueRecords === 0) {
-                setError('Cannot proceed with upload: No unique records found. All records are duplicates.');
+            // Show warning if there are no unique records, but don't treat it as an error
+            if (result.uniqueRecords === 0 && result.duplicateCount > 0) {
+                setError('Note: All records are duplicates. Please select how you want to handle each duplicate record.');
+            } else if (result.uniqueRecords === 0 && result.duplicateCount === 0) {
+                setError('No records to process. Please check your data.');
             }
 
         } catch (error) {
@@ -305,73 +314,51 @@ const UploadNew = () => {
 
     // Handle final confirmation
     const handleConfirmation = async (proceed) => {
-        if (proceed) {
-            setIsUploading(true);
+        if (!proceed) {
+            setUploadResult(null);
+            return;
         }
+
+        setIsUploading(true);
+        setError("");
+
+        const apiUrl = process.env.REACT_APP_API_URL;
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            setError('Authentication required. Please login again.');
+            setIsUploading(false);
+            navigate('/customers');
+            return;
+        }
+
         try {
-            if (!uploadId) {
-                setError('No upload ID found. Please try uploading again.');
-                return;
-            }
-
-            // Only proceed if we have unique records to upload
-            if (proceed && (!uploadResult?.uniqueRecords || uploadResult.uniqueRecords === 0)) {
-                setError('Cannot proceed with upload: No unique records found.');
-                return;
-            }
-
-            const apiUrl = process.env.REACT_APP_API_URL;
-
-            // Filter out duplicate records
-            const uniqueRecordsToUpload = proceed ? customerData.filter(record => {
-                const recordMobile = record[headerMapping['mobile']]?.toString().trim();
-                
-                return !uploadResult.duplicates.some(duplicate => {
-                    const duplicateMobile = duplicate[headerMapping['mobile']]?.toString().trim();
-                    return duplicateMobile === recordMobile;
-                });
-            }) : [];
-
-            const response = await fetch(`${apiUrl}/upload/confirm`, {
-                method: 'POST',
+            const config = {
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    uploadId,
-                    proceed,
-                    headerMapping,
-                    customerData: uniqueRecordsToUpload
-                }),
-            });
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            };
 
-            const result = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(result.message || 'Failed to confirm upload');
-            }
+            const response = await axios.post(`${apiUrl}/upload/confirm`, {
+                uploadId: uploadResult.uploadId,
+                proceed,
+                duplicateActions
+            }, config);
 
-            // Show different messages based on proceed value
-            if (proceed) {
-                alert(`Upload successful!\nTotal Records: ${uploadResult.totalRecords}\nUnique Records: ${uploadResult.uniqueRecords}\nDuplicate Entries: ${uploadResult.duplicateCount}`);
+            if (response.data.success) {
+                setUploadResult(null);
                 navigate('/customers');
             } else {
-                alert('Upload cancelled by user');
-                navigate('/customers');
+                setError(response.data.message || 'Failed to complete upload');
             }
-
-            // Clear the form state
-            setSelectedFileName(null);
-            setHeaderMapping({});
-            setCustomerData([]);
-            setUploadResult(null);
-            setUploadId(null);
-            setShowDuplicates(false);
-
-        } catch (err) {
-            setError(err.message || 'An error occurred during confirmation');
-        } finally {
+        } catch (error) {
+            if (error.response?.status === 403) {
+                setError('Session expired. Please login again.');
+                navigate('/customers');
+            } else {
+                setError(error.response?.data?.message || 'Failed to complete upload');
+            }
             setIsUploading(false);
         }
     };
@@ -454,29 +441,54 @@ const UploadNew = () => {
                     <p className="upload_res_para">Total Records: {uploadResult.totalRecords || 0}</p>
                     <p className="upload_res_para">Duplicate Entries: {uploadResult.duplicateCount || 0}</p>
                     <p className="upload_res_para">Unique Records: {uploadResult.uniqueRecords || 0}</p>
-                    
-                    <button 
-                        onClick={() => setShowDuplicates(!showDuplicates)}
-                        className="btn-secondaryyyy"
-                    >
-                        {showDuplicates ? 'Hide Duplicates' : 'Show Duplicates'}
-                    </button>
 
-                    {showDuplicates && uploadResult.duplicates && uploadResult.duplicates.length > 0 && (
+                    {uploadResult.duplicates && uploadResult.duplicates.length > 0 && (
                         <div className="duplicate-records">
-                            <table className="duplicate_records_table">
+                            <table className="duplicate-records-table">
                                 <thead>
                                     <tr>
+                                        <th>Status</th>
+                                        <th>CRN</th>
+                                        <th>Loan Card No</th>
                                         <th>Name</th>
                                         <th>Mobile</th>
+                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {uploadResult.duplicates.map((record, index) => (
-                                        <tr key={index}>
-                                            <td>{record[headerMapping['c_name']] || ''}</td>
-                                            <td>{record[headerMapping['mobile']] || ''}</td>
-                                        </tr>
+                                        <>
+                                            <tr key={`new-${index}`} className="new-record">
+                                                <td className="duplicate-status-new">New Record</td>
+                                                <td>{record.new_record[headerMapping['CRN']] || ''}</td>
+                                                <td>{record.new_record[headerMapping['loan_card_no']] || ''}</td>
+                                                <td>{record.new_record[headerMapping['c_name']] || ''}</td>
+                                                <td>{record.new_record[headerMapping['mobile']] || ''}</td>
+                                                <td rowSpan="2" className="action-cell">
+                                                    <select 
+                                                        value={duplicateActions[index] || 'skip'} 
+                                                        onChange={(e) => {
+                                                            setDuplicateActions(prev => ({
+                                                                ...prev,
+                                                                [index]: e.target.value
+                                                            }));
+                                                        }}
+                                                        className="duplicate-action-select"
+                                                    >
+                                                        <option value="skip">Do not upload</option>
+                                                        <option value="append">Append with suffix (__1, __2, etc.)</option>
+                                                        <option value="replace">Replace existing record</option>
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                            <tr key={`existing-${index}`} className="existing-record">
+                                                <td className="duplicate-status-existing">Existing Record</td>
+                                                <td>{record.existing_record.CRN || ''}</td>
+                                                <td>{record.existing_record.loan_card_no || ''}</td>
+                                                <td>{record.existing_record.c_name || ''}</td>
+                                                <td>{record.existing_record.mobile || ''}</td>
+                                            </tr>
+                                        </>
                                     ))}
                                 </tbody>
                             </table>
@@ -484,11 +496,29 @@ const UploadNew = () => {
                     )}
 
                     <div className="confirmation-buttons">
-                        <p>Would you like to proceed with uploading {uploadResult.uniqueRecords || 0} unique records?</p>
+                        {(() => {
+                            // Calculate records to be processed
+                            const uniqueCount = uploadResult.uniqueRecords || 0;
+                            const duplicateActionsCount = Object.values(duplicateActions).reduce((acc, action) => {
+                                if (action === 'append' || action === 'replace') {
+                                    return acc + 1;
+                                }
+                                return acc;
+                            }, 0);
+                            const totalToProcess = uniqueCount + duplicateActionsCount;
+
+                            // Generate appropriate message
+                            let message = totalToProcess > 0 ? 
+                                `Would you like to proceed with processing ${totalToProcess} record${totalToProcess !== 1 ? 's' : ''}?` :
+                                'Please select actions for duplicate records to proceed.';
+
+                            return <p>{message}</p>;
+                        })()}
                         <button 
                             onClick={() => handleConfirmation(true)}
                             className="btn btn-success"
-                            disabled={isUploading || uploadResult.uniqueRecords === 0}
+                            disabled={isUploading || (uploadResult.uniqueRecords === 0 && 
+                                Object.values(duplicateActions).every(action => !action || action === 'skip'))}
                         >
                             {isUploading ? 'Uploading...' : 'Yes, Upload'}
                         </button>
@@ -504,7 +534,7 @@ const UploadNew = () => {
             )}
 
             {error && (
-                <div className="error-message">
+                <div className="error-messagee">
                     {error}
                 </div>
             )}

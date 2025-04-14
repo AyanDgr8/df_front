@@ -46,7 +46,6 @@
 
 .mapping-container {
     width: 100%;
-    max-width: 800px;
     margin: auto;
     height: 70vh;
     overflow-y: auto;
@@ -124,59 +123,104 @@
 
 .upload-form {
     flex: 1;
-    width: 50%;
+    width: 30%;
 }
 
 .upload-result {
     margin-top: 3rem;
-    width: 40vw;
+    width: 60vw;
     background-color: white;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
     padding: 20px;
-    height: 50vh;
+    height: 60vh;
     overflow-y: auto;
 }
 
 .upload_res_headii {
     font-size: 1.5rem;
     margin-bottom: 20px;
-    color: #333;
+    color: #EF6F53;
 }
 
 .upload_res_para {
     margin: 10px 0;
     font-size: 1rem;
-    color: #666;
+    color: #364C63;
 }
 
 .duplicate-records {
-    margin-top: 20px;
-}
-
-.duplicate_records_table {
-    width: 100%;
-    border-collapse: collapse;
     margin-top: 10px;
 }
 
-.duplicate_records_table th,
-.duplicate_records_table td {
-    padding: 8px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
+.duplicate-records-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.8rem;
 }
 
-.duplicate_records_table th {
-    background-color: #f8f9fa;
+.duplicate-records-table th,
+.duplicate-records-table td {
+    padding: 5px;
+    text-align: left;
+    border-bottom: 2px solid #ddd;
+}
+
+.duplicate-records-table th {
+    background-color: #2a3b4d;
+    color: white;
     font-weight: 600;
 }
 
-.error-message {
+.duplicate-records-table tbody tr.new-record + tr.existing-record {
+    border-bottom: 12px solid #f5f5f5;  /* Light gap between record pairs */
+}
+
+.duplicate-records-table tbody tr {
+    background-color: #fff;
+}
+
+.duplicate-records-table tbody tr.new-record {
+    background-color: #f8f9fa;
+}
+
+.duplicate-records-table tbody tr.existing-record {
+    background-color: #fff;
+}
+
+.duplicate-status-new{
+    color: green;
+    font-weight: 500;
+}
+
+.duplicate-status-existing{
+    color: #dc3545;
+    font-weight: 500;
+}
+
+.duplicate-action-select{
+    width: 100%;
+    padding: 5px;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    transition: border-color 0.2s;
+    background-color: #ddd;
+    color: #EF6F53;
+    cursor: pointer;
+}
+
+.duplicate-action-select:hover {
+    background-color: #bcbcbc;
+}
+
+.error-messagee {
     position: fixed;
-    right: 0;
-    top: 50%;
+    right: 2%;
+    top: 40%;
     transform: translateY(-50%);
-    width: 25vw;
+    width: 22.5%;
     background-color: #fff;
     border-left: 4px solid #dc3545;
     padding: 20px;
@@ -185,18 +229,18 @@
 }
 
 .btn-secondaryyyy {
-    width: 100%;
-    margin: 15px 0;
-    padding: 8px;
-    background-color: #6c757d;
+    width: 22.5%;
+    margin: 1px;
+    padding: 5px ;
+    background-color: #4c739c;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 10px;
     cursor: pointer;
 }
 
 .btn-secondaryyyy:hover {
-    background-color: #5a6268;
+    background-color: #2a3b4d;
 }
 
 .confirmation-buttons {
@@ -211,20 +255,29 @@
 
 .confirmation-buttons button {
     margin: 5px;
-    padding: 8px 16px;
+    padding: 8px 10px;
     border: none;
-    border-radius: 4px;
+    border-radius: 10px;
     cursor: pointer;
+    font-size: 0.9rem;
 }
 
 .btn-success {
-    background-color: #2d6929;
+    background-color: green;
     color: white;
+}
+
+.btn-success:hover {
+    background-color: #215726;
 }
 
 .btn-danger {
     background-color: #dc3545;
     color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
 }
 
 .butn {

@@ -16,6 +16,12 @@ const CreateForm = () => {
     banker_name: '',
     mobile: '',
     ref_mobile: '',
+    mobile_3: '',
+    mobile_4: '',
+    mobile_5: '',
+    mobile_6: '',
+    mobile_7: '',
+    mobile_8: '',
     agent_name: '',
     tl_name: '',
     fl_supervisor: '',
@@ -39,6 +45,10 @@ const CreateForm = () => {
   });
 
   const [formSuccess, setFormSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState(null);
+  const [duplicateAction, setDuplicateAction] = useState('skip');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -85,126 +95,270 @@ const CreateForm = () => {
     console.log('Scheduling a call');
   };
 
+  // Validate required fields
+  const validateRequiredFields = () => {
+    const requiredFields = [
+      "loan_card_no", "CRN", "c_name", "product", "bank_name", "banker_name",
+      "mobile", "tl_name", "fl_supervisor", "DPD_vintage", "POS", "emi_AMT",
+      "loan_AMT", "paid_AMT", "paid_date", "settl_AMT", "shots", 
+      "resi_address", "pincode", "office_address", "new_track_no"
+    ];
+
+    for (let field of requiredFields) {
+      if (!formData[field] || formData[field].trim() === "") {
+        setError(`Please fill out the "${field.replace(/_/g, ' ').toUpperCase()}" field.`);
+        return false;
+      }
+    }
+    return true;
+  };
+
   // Handle form submission
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, action = 'prompt') => {
     e.preventDefault();
+    setError('');
+
+    // First validate required fields
+    if (!validateRequiredFields()) {
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        alert("Authentication token not found");
+        setError('Authentication token not found');
         return;
       }
 
       const apiUrl = process.env.REACT_APP_API_URL;
+
       const response = await axios.post(
         `${apiUrl}/customers/new`, 
-        formData,
+        { ...formData, duplicateAction: action },
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json'
           },
         }
       );
-      
-      console.log(response.data);
-      setFormSuccess(true);
-      alert("Record added successfully!");
-      
-      // Reset form
-      setFormData({
-        ...formData,
-        paid_AMT: '',
-        paid_date: '',
-        settl_AMT: '',
-        shots: '',
-        new_track_no: '',
-        calling_code: 'WN',
-        field_code: 'ANF',
-        scheduled_at: '',
-        calling_feedback: '',
-        field_feedback: ''
-      });
 
-      // Navigate to list view
-      navigate('/customers');
-
+      if (response.data.success) {
+        console.log(response.data);
+        setFormSuccess(true);
+        alert("Record added successfully!");
+        setFormData({
+          loan_card_no: '',
+          CRN: '',
+          c_name: '',
+          product: '',
+          bank_name: '',
+          banker_name: '',
+          mobile: '',
+          ref_mobile: '',
+          mobile_3: '',
+          mobile_4: '',
+          mobile_5: '',
+          mobile_6: '',
+          mobile_7: '',
+          mobile_8: '',
+          agent_name: formData.agent_name,  // Preserving agent name
+          tl_name: '',
+          fl_supervisor: '',
+          DPD_vintage: '',
+          POS: '',
+          emi_AMT: '',
+          loan_AMT: '',
+          paid_AMT: '',
+          paid_date: '',
+          settl_AMT: '',
+          shots: '',
+          resi_address: '',
+          pincode: '',
+          office_address: '',
+          new_track_no: '',
+          calling_code: 'WN',
+          field_code: 'ANF',
+          scheduled_at: '',
+          calling_feedback: '',
+          field_feedback: ''
+        });
+        navigate('/customers');
+      }
     } catch (error) {
-      console.error('Error adding record:', error);
-      alert('Error adding record. Please try again.');
+      if (error.response?.status === 409) {
+        // Handle duplicate record
+        setDuplicateInfo(error.response.data);
+        setShowDuplicateDialog(true);
+      } else {
+        console.error('Error adding record:', error);
+        setError(error.response?.data?.message || 'Error adding record. Please try again.');
+      }
     }
+  };
+
+  const handleDuplicateAction = (action) => {
+    // Validate required fields again before proceeding with the action
+    if (!validateRequiredFields()) {
+      return;
+    }
+
+    setShowDuplicateDialog(false);
+    handleSubmit({ preventDefault: () => {} }, action);
   };
 
   return (
     <div>
       <h2 className="create_form_headiii">Create New Customer</h2>
       <div className="create-form-container">
-        <form onSubmit={handleSubmit}>
+        {error && <div className="error-messagee">{error}</div>}
+        
+        {showDuplicateDialog && duplicateInfo && (
+          <div className="duplicate-dialog">
+            <h3>Duplicate Record Found</h3>
+            <p>
+              {duplicateInfo.loan_card_no_exists 
+                ? "Loan card number already exists" 
+                : "CRN already exists"}
+            </p>
+            
+            <div className="existing-record">
+              <h4>Existing Record:</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>CRN</th>
+                    <th>Loan Card No</th>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>{duplicateInfo.existing_record.CRN}</td>
+                    <td>{duplicateInfo.existing_record.loan_card_no}</td>
+                    <td>{duplicateInfo.existing_record.c_name}</td>
+                    <td>{duplicateInfo.existing_record.mobile}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="duplicate-actionss">
+              <h4>Choose Action:</h4>
+              <div className="action-containerr">
+                <select 
+                  value={duplicateAction}
+                  onChange={(e) => setDuplicateAction(e.target.value)}
+                  className="duplicate-action-selectt"
+                >
+                  <option value="skip">Not Upload Duplicate</option>
+                  <option value="append">Append with suffix (__1, __2, etc.)</option>
+                  <option value="replace">Replace existing record</option>
+                </select>
+                <div className="button-group">
+                  <button 
+                    onClick={() => handleDuplicateAction(duplicateAction)}
+                    className="action-buttonnn-continue"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={(e) => handleSubmit(e, 'prompt')} className="create-form">
           {[
             { 
-              label: "Loan Card No", name: "loan_card_no", 
+              label: "Loan Card No", name: "loan_card_no", required: true 
             },
             { 
-              label: "CRN", name: "CRN",  
+              label: "CRN", name: "CRN",  required: true 
             },
             { 
-              label: "Customer Name", name: "c_name", 
+              label: "Customer Name", name: "c_name", required: true 
             },
             { 
-              label: "Product", name: "product", 
+              label: "Product", name: "product", required: true 
             },
             { 
-              label: "Bank Name", name: "bank_name", 
+              label: "Bank Name", name: "bank_name", required: true 
             },
             { 
-              label: "Banker Name", name: "banker_name", 
+              label: "Banker Name", name: "banker_name", required: true 
             },
             { 
               label: "Mobile", name: "mobile", type: "tel", 
-              maxLength: "12", 
+              maxLength: "12", required: true 
             },
             { 
               label: "Ref Mobile", name: "ref_mobile", type: "tel", 
               maxLength: "12",  
             },
             { 
-              label: "TL Name", name: "tl_name", 
+                label: "Mobile 3", name: "mobile_3", type: "tel", 
+                maxLength: "12",
             },
             { 
-              label: "FM / Supervisor", name: "fl_supervisor", 
+                label: "Mobile 4", name: "mobile_4", type: "tel", 
+                maxLength: "12",  
             },
             { 
-              label: "DPD / Vintage", name: "DPD_vintage", 
-            },
-            {
-              label: "POS", name: "POS", 
-            },
-            {
-              label: "EMI Amount", name: "emi_AMT", 
-            },
-            {
-              label: "Loan Amount", name: "loan_AMT", 
-            },
-            {
-              label: "Paid Amount", name: "paid_AMT", 
-            },
-            {
-              label: "Paid Date", name: "paid_date", type: "date" 
-            },
-            {
-              label: "Settlement Amount", name: "settl_AMT", 
-            },
-            {
-              label: "Shots", name: "shots", 
+                label: "Mobile 5", name: "mobile_5", type: "tel", 
+                maxLength: "12",  
             },
             { 
-              label: "Resi Address", name: "resi_address",
+                label: "Mobile 6", name: "mobile_6", type: "tel", 
+                maxLength: "12",  
             },
             { 
-              label: "Pincode", name: "pincode", 
+                label: "Mobile 7", name: "mobile_7", type: "tel", 
+                maxLength: "12",
             },
             { 
-              label: "Office Address", name: "office_address",  
+                label: "Mobile 8", name: "mobile_8", type: "tel", 
+                maxLength: "12", 
+            },
+            { 
+              label: "TL Name", name: "tl_name", required: true 
+            },
+            { 
+              label: "FM / Supervisor", name: "fl_supervisor", required: true 
+            },
+            { 
+              label: "DPD / Vintage", name: "DPD_vintage", required: true 
+            },
+            {
+              label: "POS", name: "POS", required: true 
+            },
+            {
+              label: "EMI Amount", name: "emi_AMT", required: true 
+            },
+            {
+              label: "Loan Amount", name: "loan_AMT", required: true 
+            },  
+            {
+              label: "Paid Amount", name: "paid_AMT", required: true 
+            },
+            {
+              label: "Paid Date", name: "paid_date", type: "date", required: true 
+            },
+            {
+              label: "Settlement Amount", name: "settl_AMT", required: true 
+            },
+            {
+              label: "Shots", name: "shots", required: true 
+            },
+            { 
+              label: "Resi Address", name: "resi_address", required: true 
+            },
+            { 
+              label: "Pincode", name: "pincode", required: true 
+            },
+            { 
+              label: "Office Address", name: "office_address", required: true 
             },
             { 
               label: "New Tracing No", name: "new_track_no",  required: true 
@@ -291,7 +445,7 @@ const CreateForm = () => {
             </div>
           </div>
 
-          <button type="submit" className="submit-btn">
+          <button type="submit" className="submit-btn submmit-button">
             Add Customer
           </button>
         </form>

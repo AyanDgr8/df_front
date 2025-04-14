@@ -13,7 +13,7 @@ const UseForm = () => {
     const { mobile } = useParams();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [isAdmin, setIsAdmin] = useState(false);
+    const [hasDeletePermission, setHasDeletePermission] = useState(false);
     const [error, setError] = useState(null); 
     const [customer, setCustomer] = useState(null);
     const [availableAgents, setAvailableAgents] = useState([]); 
@@ -47,7 +47,7 @@ const UseForm = () => {
         field_feedback: '',
         new_track_no: '',
         field_code: 'ANF',
-        scheduled_at: '',
+        scheduled_at: ''
     });
 
     const [updatedData, setUpdatedData] = useState(formData);
@@ -83,47 +83,52 @@ const UseForm = () => {
         return true;
     };
 
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '';
+            
+            // Format as YYYY-MM-DDThh:mm
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        } catch (error) {
+            console.error('Error formatting date:', error);
+            return '';
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        let processedValue = value || ''; // Ensure value is never null
         
         // For phone numbers, only allow digits and limit to 12 digits
-        if (name === 'mobile') {
-            const validatedValue = validatePhoneNumber(value);
-            setFormData(prev => ({
-                ...prev,
-                [name]: validatedValue
-            }));
-            setUpdatedData(prev => ({
-                ...prev,
-                [name]: validatedValue
-            }));
+        if (name === 'mobile' || name === 'ref_mobile') {
+            processedValue = validatePhoneNumber(value || '');
         } 
+        // For comment fields, check character limit
+        else if ((name === 'calling_feedback' || name === 'field_feedback') && value?.length > 500) {
+            alert('Comment cannot exceed 500 characters');
+            return;
+        }
+        // For date fields, ensure proper format
+        else if (name === 'scheduled_at' || name === 'paid_date') {
+            processedValue = formatDateForInput(value || '');
+        }
 
-        // For comment field, check character limit
-        else if (name === 'calling_feedback' || name === 'field_feedback') {
-            if (value.length > 500) {
-                alert('Comment cannot exceed 500 characters');
-                return;
-            }
-            setFormData(prev => ({
-                ...prev,
-                [name]: value
-            }));
-            setUpdatedData(prev => ({
-                ...prev,
-                [name]: value
-            }));
-        }
-        else {
-            setFormData(prev => ({
-                ...prev,
-                [name]: value
-            }));
-            setUpdatedData(prev => ({
-                ...prev,
-                [name]: value
-            }));
-        }
+        setFormData(prev => ({
+            ...prev,
+            [name]: processedValue
+        }));
+        setUpdatedData(prev => ({
+            ...prev,
+            [name]: processedValue
+        }));
     };
 
     const checkForDuplicates = async (updatedFormData) => {
@@ -176,22 +181,29 @@ const UseForm = () => {
         });
     };
 
-    useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const apiUrl = process.env.REACT_APP_API_URL;
+    const fetchUser = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const apiUrl = process.env.REACT_APP_API_URL;
 
-                // First get the current user's data
-                const userResponse = await axios.get(`${apiUrl}/current-user`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
+            // Get user data
+            const userResponse = await axios.get(`${apiUrl}/current-user`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
 
-                setUser(userResponse.data);
-                setIsAdmin(userResponse.data.role === 'it_admin' || userResponse.data.role === 'super_admin');
+            setUser(userResponse.data);
+            
+            // Get permissions from API response
+            const permissions = userResponse.data.permissions || [];
+            console.log('Latest user permissions from API:', permissions);
+            
+            // Check for delete permission
+            const hasDeletePerm = Array.isArray(permissions) && permissions.includes('delete_customer');
+            console.log('Has delete permission:', hasDeletePerm);
+            setHasDeletePermission(hasDeletePerm);
 
                 // Then get the available agents based on user's role
                 try {
@@ -202,22 +214,20 @@ const UseForm = () => {
                         }
                     });
                     setAvailableAgents(agentsResponse.data);
-                } catch (error) {
+        } catch (error) {
                     console.error('Error fetching available agents:', error);
                     setError('Failed to fetch available agents');
                 }
 
             } catch (error) {
                 console.error('Error in fetchUser:', error);
-                setError('Failed to fetch user data');
-                setLoading(false);
-            }
-        };
-
-        fetchUser();
-    }, []);
+            setError('Failed to fetch user data');
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
+        fetchUser();
         const fetchCustomerData = async () => {
             if (location.state?.customer) {
                 setCustomer(location.state.customer);
@@ -254,11 +264,10 @@ const UseForm = () => {
         };
 
         fetchCustomerData();
-    }, [location.state?.customer, mobile, navigate]);
-
+    }, [mobile]); // Add mobile as dependency since it's used in fetchCustomerData
 
     const handleDelete = async () => {
-        if (!isAdmin) {
+        if (!hasDeletePermission) {
             alert("You do not have permission to delete customers.");
             return;
         }
@@ -269,7 +278,7 @@ const UseForm = () => {
             const token = localStorage.getItem('token');
             const apiUrl = process.env.REACT_APP_API_URL;
 
-            await axios.delete(`${apiUrl}/customer/${customer.id}`, {
+            await axios.delete(`${apiUrl}/customers/${customer.id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
@@ -279,8 +288,58 @@ const UseForm = () => {
             alert("Customer deleted successfully.");
             navigate("/customers");
         } catch (error) {
-            console.error("Error deleting customer:", error);
-            alert("Failed to delete customer. Please try again.");
+            if (error.response && error.response.status === 403) {
+                alert("You do not have permission to delete customers.");
+                // Refresh user data to get latest permissions
+                const fetchUser = async () => {
+                    try {
+                        const token = localStorage.getItem('token');
+                        const apiUrl = process.env.REACT_APP_API_URL;
+
+                        // First get the current user's data
+                        const userResponse = await axios.get(`${apiUrl}/current-user`, {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+
+                        setUser(userResponse.data);
+                        
+                        // Get permissions from API response only
+                        const permissions = userResponse.data.permissions || [];
+                        console.log('Latest user permissions from API:', permissions);
+                        
+                        // Check if delete_customer permission exists in the array
+                        const hasDeletePerm = Array.isArray(permissions) && permissions.includes('delete_customer');
+                        console.log('Has delete permission:', hasDeletePerm);
+                        setHasDeletePermission(hasDeletePerm);
+
+                        // Then get the available agents based on user's role
+                        try {
+                            const agentsResponse = await axios.get(`${apiUrl}/players/teams`, {
+                                headers: {
+                                    Authorization: `Bearer ${token}`,
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            setAvailableAgents(agentsResponse.data);
+                        } catch (error) {
+                            console.error('Error fetching available agents:', error);
+                            setError('Failed to fetch available agents');
+                        }
+
+                    } catch (error) {
+                        console.error('Error in fetchUser:', error);
+                        setError('Failed to fetch user data');
+                        setLoading(false);
+                    }
+                };
+                await fetchUser();
+            } else {
+                console.error("Error deleting customer:", error);
+                alert("Failed to delete customer. Please try again.");
+            }
         }
     };
 
@@ -395,6 +454,30 @@ const UseForm = () => {
                                 maxLength: "12",disabled: true  
                             },
                             { 
+                                label: "Mobile 3", name: "mobile_3", type: "tel", 
+                                maxLength: "12",disabled: true  
+                            },
+                            { 
+                                label: "Mobile 4", name: "mobile_4", type: "tel", 
+                                maxLength: "12",disabled: true  
+                            },
+                            { 
+                                label: "Mobile 5", name: "mobile_5", type: "tel", 
+                                maxLength: "12",disabled: true  
+                            },
+                            { 
+                                label: "Mobile 6", name: "mobile_6", type: "tel", 
+                                maxLength: "12",disabled: true  
+                            },
+                            { 
+                                label: "Mobile 7", name: "mobile_7", type: "tel", 
+                                maxLength: "12",disabled: true  
+                            },
+                            { 
+                                label: "Mobile 8", name: "mobile_8", type: "tel", 
+                                maxLength: "12",disabled: true  
+                            },
+                            { 
                                 label: "TL Name", name: "tl_name", disabled: true 
                             },
                             { 
@@ -493,7 +576,7 @@ const UseForm = () => {
                             <input
                                 type="datetime-local"
                                 name="scheduled_at"
-                                value={formData.scheduled_at}
+                                value={formData.scheduled_at || ''}
                                 onChange={handleInputChange}
                                 onKeyDown={(e) => e.preventDefault()}
                                 onClick={handleScheduledAtClick}
@@ -508,7 +591,7 @@ const UseForm = () => {
                             <div className="textarea-container">
                                 <textarea
                                     name="calling_feedback"
-                                    value={formData.calling_feedback}
+                                    value={formData.calling_feedback || ''}
                                     onChange={handleInputChange}
                                     rows="6"
                                     placeholder="Max 500 characters"
@@ -523,7 +606,7 @@ const UseForm = () => {
                             <div className="textarea-container">
                                 <textarea
                                     name="field_feedback"
-                                    value={formData.field_feedback}
+                                    value={formData.field_feedback || ''}
                                     onChange={handleInputChange}
                                     rows="6"
                                     placeholder="Max 500 characters"
@@ -534,7 +617,7 @@ const UseForm = () => {
 
                         <button className="sbt-use-btn" type="submit">Update</button>
                     </form>
-                    {isAdmin && (  
+                    {hasDeletePermission && (  
                         <button 
                             onClick={handleDelete} 
                             className="add-field-btnnn"

@@ -147,11 +147,12 @@
 }
 
 .pagination-containerr {
+  background-color: #364C63;
+  padding: 0.5rem; 
+  border-top: 2px solid #EF6F53; 
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 2rem;
-  padding: 1rem;
 }
 
 .paginationn {

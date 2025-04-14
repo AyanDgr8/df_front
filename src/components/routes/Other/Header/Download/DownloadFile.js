@@ -57,6 +57,12 @@ const DownloadFile = () => {
             return (
                 (item.c_name?.toLowerCase().includes(searchTermLower)) ||
                 (item.mobile?.toString().includes(searchTerm)) ||
+                (item.mobile_3?.toString().includes(searchTerm)) ||
+                (item.mobile_4?.toString().includes(searchTerm)) ||
+                (item.mobile_5?.toString().includes(searchTerm)) ||
+                (item.mobile_6?.toString().includes(searchTerm)) ||
+                (item.mobile_7?.toString().includes(searchTerm)) ||
+                (item.mobile_8?.toString().includes(searchTerm)) ||
                 (item.loan_card_no?.toLowerCase().includes(searchTermLower)) ||
                 (item.agent_name?.toLowerCase().includes(searchTermLower)) ||
                 (item.bank_name?.toLowerCase().includes(searchTermLower))
@@ -101,6 +107,7 @@ const DownloadFile = () => {
         'loan_card_no','CRN', 'c_name',
         'product', 'bank_name', 'banker_name', 
         'mobile', 'ref_mobile','agent_name', 
+        'mobile_3', 'mobile_4', 'mobile_5', 'mobile_6', 'mobile_7', 'mobile_8',
         'tl_name', 'fl_supervisor', 'DPD_vintage',
         'POS', 'emi_AMT', 'loan_AMT', 'paid_AMT', 'paid_date',
         'settl_AMT', 'shots', 'resi_address', 'pincode', 'office_address',
@@ -119,6 +126,12 @@ const DownloadFile = () => {
             'mobile': 'Mobile',
             'ref_mobile': 'Ref Mobile',
             'agent_name': 'Agent Name',
+            'mobile_3': 'Mobile 3',
+            'mobile_4': 'Mobile 4',
+            'mobile_5': 'Mobile 5',
+            'mobile_6': 'Mobile 6',
+            'mobile_7': 'Mobile 7',
+            'mobile_8': 'Mobile 8',
             'tl_name': 'TL Name',
             'fl_supervisor': 'FL Supervisor',
             'DPD_vintage': 'DPD Vintage',

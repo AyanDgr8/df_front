@@ -6,175 +6,179 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import "./SearchForm.css"; 
 
 const SearchForm = () => {
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState(''); 
+  const [searchResults, setSearchResults] = useState([]);
   const [selectedRecords, setSelectedRecords] = useState([]);
-  const [teamUsers, setTeamUsers] = useState([]);
   const [selectedTeamUser, setSelectedTeamUser] = useState('');
-  const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [availableAgents, setAvailableAgents] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
-  const [userRole, setUserRole] = useState('');
-  const [teamId, setTeamId] = useState(null);
-  const location = useLocation();
+  const [user, setUser] = useState(null);
+  const [permissions, setPermissions] = useState({});
+  const [canAssignTeam, setCanAssignTeam] = useState(false);
+  const [canDeleteCustomers, setCanDeleteCustomers] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const fetchUserAndTeam = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL;
+
+      // Fetch current user data
+      const userResponse = await axios.get(`${apiUrl}/current-user`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const userData = userResponse.data;
+      setUser(userData);
+
+      // Get permissions from stored user data
+      const userPermissions = userData.permissions || [];
+      console.log('User stored permissions:', userPermissions);
+      setPermissions(userPermissions.reduce((acc, perm) => ({ ...acc, [perm]: true }), {}));
+
+      // Determine if user can assign teams (based on role only)
+      const hasTeamAssignRole = userData && 
+        ['super_admin', 'it_admin', 'business_head', 'team_leader'].includes(userData.role);
+      setCanAssignTeam(hasTeamAssignRole);
+      
+      // Determine if user can delete (based on role and permission)
+      setCanDeleteCustomers(hasTeamAssignRole && userPermissions.includes('delete_customer'));
+
+      // Fetch available agents if user can assign teams
+      if (hasTeamAssignRole) {
+        const isAdmin = ['super_admin', 'it_admin', 'business_head'].includes(userData.role);
+        let agentsEndpoint;
+        
+        if (isAdmin) {
+          agentsEndpoint = `${apiUrl}/users/all`;
+        } else if (userData.role === 'team_leader') {
+          agentsEndpoint = `${apiUrl}/users/team/${userData.team_id}`;
+        }
+
+        if (agentsEndpoint) {
+          const agentsResponse = await axios.get(agentsEndpoint, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          let agents = [];
+          if (agentsResponse.data && Array.isArray(agentsResponse.data.data)) {
+            agents = agentsResponse.data.data;
+          } else if (agentsResponse.data && Array.isArray(agentsResponse.data)) {
+            agents = agentsResponse.data;
+          }
+
+          // Filter out admin users if current user is team leader
+          if (userData.role === 'team_leader') {
+            agents = agents.filter(agent => 
+              agent.role === 'user' && agent.team_id === userData.team_id
+            );
+          }
+
+          setAvailableAgents(agents);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
 
   useEffect(() => {
-    const fetchUserAndTeam = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const apiUrl = process.env.REACT_APP_API_URL;
-  
-        // Fetch user data
-        const userResponse = await axios.get(`${apiUrl}/current-user`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setUser(userResponse.data);
-        
-        // Set user role and check admin status
-        const role = userResponse.data.role.toLowerCase();
-        setUserRole(role);
-        const isAdminUser = ['super_admin', 'it_admin', 'business_head'].includes(role);
-        setIsAdmin(isAdminUser);
-        
-        // Store team ID if user is team_leader
-        if (role === 'team_leader') {
-          setTeamId(userResponse.data.team_id);
-        }
-
-        // Fetch team users if admin
-        if (isAdminUser) {
-          try {
-            const teamResponse = await axios.get(`${apiUrl}/team-users`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            
-            if (teamResponse.data && Array.isArray(teamResponse.data)) {
-              // Filter out admin roles
-              const teamUsers = teamResponse.data.filter(user => 
-                !['super_admin', 'it_admin', 'business_head', 'team_leader'].includes(user.role.toLowerCase())
-              );
-              setTeamUsers(teamUsers);
-            } else {
-              setTeamUsers([]);
-            }
-          } catch (teamError) {
-            console.error('Error fetching team users:', teamError);
-            setTeamUsers([]);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        setError('Failed to fetch user data');
-      }
-    };
-
     fetchUserAndTeam();
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      setError(null);
       try {
         const query = new URLSearchParams(location.search);
         const searchQuery = query.get('query');
         
         if (!searchQuery) {
-          setResults([]);
-          setTotalCount(0);
+          setSearchResults([]);
           setLoading(false);
           return;
         }
 
         const token = localStorage.getItem('token');
-        if (!token) {
-          setError('Authentication required');
-          setLoading(false);
-          return;
-        }
-
         const apiUrl = process.env.REACT_APP_API_URL;
         
         // Build search URL based on user role
         let searchUrl = `${apiUrl}/customers/search?query=${searchQuery}`;
         
         // Add role-specific parameters
-        if (userRole === 'team_leader' && teamId) {
-          searchUrl += `&team_id=${teamId}`;
-        } else if (userRole === 'user') {
-          searchUrl += `&agent_id=${user.id}`;
+        if (user && user.role === 'team_leader' && user.team_id) {
+          searchUrl += `&team_id=${user.team_id}`;
         }
-        // super_admin, it_admin, and business_head get unfiltered results
 
         const response = await axios.get(searchUrl, {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
 
-        // Handle both array and object response formats
-        if (Array.isArray(response.data)) {
-          setResults(response.data);
-          setTotalCount(response.data.length);
-        } else if (response.data && typeof response.data === 'object') {
-          if (response.data.success && Array.isArray(response.data.data)) {
-            setResults(response.data.data);
-            setTotalCount(response.data.count || response.data.data.length);
-          } else {
-            setResults([]);
-            setTotalCount(0);
+        // Handle different response formats
+        let results = [];
+        if (response.data) {
+          if (Array.isArray(response.data)) {
+            results = response.data;
+          } else if (response.data.data && Array.isArray(response.data.data)) {
+            results = response.data.data;
+          } else if (typeof response.data === 'object') {
+            // If it's a single object, wrap it in an array
+            results = [response.data];
           }
-        } else {
-          console.error('Unexpected response format:', response.data);
-          setError('Invalid response format from server');
-          setResults([]);
-          setTotalCount(0);
         }
+        
+        console.log('Search results:', results); // Debug log
+        setSearchResults(results);
+        setLoading(false);
       } catch (error) {
-        console.error('Search error:', error.response || error);
-        setError(error.response?.data?.message || 'Error fetching search results');
-        setResults([]);
-        setTotalCount(0);
-      } finally {
+        console.error('Error fetching search results:', error);
+        setSearchResults([]);
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [location.search, userRole, teamId, user]);
+  }, [location.search, user]);
 
   const handleEdit = (customer) => {
     navigate('/customers/phone/' + customer.phone_no, { state: { customer } });
   };
 
-  const handleSelect = (customerId) => {
+  const handleSelect = (C_unique_id) => {
     setSelectedRecords(prev => {
-      if (prev.includes(customerId)) {
-        return prev.filter(id => id !== customerId);
+      const record = searchResults.find(r => r.C_unique_id === C_unique_id);
+      if (!record) return prev;
+
+      if (prev.some(r => r.C_unique_id === C_unique_id)) {
+        return prev.filter(r => r.C_unique_id !== C_unique_id);
       } else {
-        return [...prev, customerId];
+        return [...prev, record];
       }
     });
   };
 
   const handleSelectAll = () => {
-    const currentRecords = getCurrentPageRecords();
     if (selectedRecords.length === currentRecords.length) {
       setSelectedRecords([]);
     } else {
-      setSelectedRecords(currentRecords.map(record => record.C_unique_id));
+      setSelectedRecords(currentRecords);
     }
   };
 
   const handleAssignTeam = async () => {
     if (!selectedTeamUser || selectedRecords.length === 0) {
-      alert('Please select team user and customers to assign');
+      alert('Please select both a user and at least one customer');
       return;
     }
 
@@ -185,83 +189,109 @@ const SearchForm = () => {
       // Debug logs
       console.log('Selected Team User:', selectedTeamUser);
       console.log('Selected Records:', selectedRecords);
-      
-      // Assign each customer to the selected team user
-      const assignPromises = selectedRecords.map(async (C_unique_id) => {
-        // First, get the customer's numeric ID
-        const [customer] = results.filter(c => c.C_unique_id === C_unique_id);
-        if (!customer) {
-          throw new Error(`Customer with ID ${C_unique_id} not found in results`);
-        }
 
-        const requestData = {
-          customer_id: C_unique_id,
-          user_id: selectedTeamUser,
-          department_id: user?.department_id
-        };
-        console.log('Sending request data:', requestData);
-        
-        // First, assign the customer
-        const assignResponse = await axios.post(
-          `${apiUrl}/assign-customer`, 
-          requestData,
-          {
-            headers: { 
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
+      const response = await axios.post(
+        `${apiUrl}/customers/assign-team`,
+        {
+          agent_id: parseInt(selectedTeamUser),
+          customer_ids: selectedRecords.map(c => c.id)
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
-        );
+        }
+      );
 
-        if (assignResponse.data.success) {
-          // Then, log the change
-          const selectedUser = teamUsers.find(u => String(u.id) === String(selectedTeamUser));
-          const oldAgent = customer.agent_name || 'Unassigned';
-          
-          await axios.post(
-            `${apiUrl}/customers/log-change`,
+      if (response.status === 200) {
+        alert('Customers assigned successfully');
+        setSelectedRecords([]);
+        setSelectedTeamUser('');
+        
+        // Refresh the search results
+        const query = new URLSearchParams(location.search);
+        const searchQuery = query.get('query');
+        if (searchQuery) {
+          const searchResponse = await axios.get(
+            `${apiUrl}/customers/search?query=${searchQuery}`,
             {
-              customerId: customer.id, // Numeric ID from the database
-              C_unique_id: C_unique_id, // The FF_XXX format ID
-              changes: [{
-                field: 'agent_assigned',
-                old_value: oldAgent,
-                new_value: selectedUser ? selectedUser.username : 'Unknown User',
-                changed_by: user?.username || 'System'
-              }]
-            },
-            {
-              headers: { 
+              headers: {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json'
               }
             }
           );
-        }
-      });
 
-      await Promise.all(assignPromises);
-
-      // Refresh the search results
-      const query = new URLSearchParams(location.search);
-      const searchQuery = query.get('query');
-      if (searchQuery) {
-        const response = await axios.get(`${apiUrl}/customers/search?query=${searchQuery}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+          // Handle different response formats
+          let results = [];
+          if (searchResponse.data) {
+            if (Array.isArray(searchResponse.data)) {
+              results = searchResponse.data;
+            } else if (searchResponse.data.data && Array.isArray(searchResponse.data.data)) {
+              results = searchResponse.data.data;
+            } else if (typeof searchResponse.data === 'object') {
+              results = [searchResponse.data];
+            }
           }
-        });
-        setResults(response.data);
+          
+          console.log('Updated search results:', results); // Debug log
+          setSearchResults(results);
+        }
+      } else {
+        alert(response.data.message || 'Failed to assign customers');
       }
-      
-      setSelectedRecords([]);
-      setSelectedTeamUser('');
-      alert('Customers assigned successfully!');
     } catch (error) {
       console.error('Error assigning customers:', error);
-      const errorMsg = error.response?.data?.message || error.message || 'Failed to assign customers. Please try again.';
-      alert(errorMsg);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to assign customers';
+      alert(errorMessage);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!canDeleteCustomers) {
+      alert("You do not have permission to delete customers.");
+      return;
+    }
+    
+    if (selectedRecords.length === 0) {
+      alert("Please select customers to delete.");
+      return;
+    }
+
+    const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedRecords.length} selected customers?`);
+    if (!confirmDelete) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL;
+      const customerIds = selectedRecords.map(c => c.id);
+      
+      await axios.post(`${apiUrl}/customers/delete-multiple`, 
+        { customerIds },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      // Remove deleted customers from state
+      setSearchResults(prev => prev.filter(c => !customerIds.includes(c.id)));
+      setSelectedRecords([]);
+      
+      // Show success alert
+      alert(`Successfully deleted ${customerIds.length} records!`);
+    } catch (error) {
+      console.error('Error deleting customers:', error);
+      if (error.response?.status === 403) {
+        alert("You do not have permission to delete customers.");
+        // Refresh user data to get latest permissions
+        await fetchUserAndTeam();
+      } else {
+        alert("Failed to delete selected records");
+      }
     }
   };
 
@@ -279,18 +309,18 @@ const SearchForm = () => {
     return new Date(dateString).toLocaleString('en-GB', options);
   };
 
-  // Pagination functions
-  const indexOfLastRecord = currentPage * recordsPerPage;
-  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
   const getCurrentPageRecords = () => {
+    const results = Array.isArray(searchResults) ? searchResults : [];
+    const indexOfLastRecord = currentPage * recordsPerPage;
+    const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
     return results.slice(indexOfFirstRecord, indexOfLastRecord);
   };
+
   const currentRecords = getCurrentPageRecords();
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   if (loading) return <p>Loading...</p>;
-  if (error) return <p className="error">{error}</p>;
 
   return (
     <div>
@@ -301,11 +331,11 @@ const SearchForm = () => {
         <h2 className="list_form_headiii">Search Results</h2>
       </div>
       <div className="list-containerr">
-        {results.length > 0 ? (
+        {searchResults.length > 0 ? (
           <table className="customers-table">
             <thead>
               <tr className="customer-row">
-                  {isAdmin && (
+                  {canAssignTeam && (
                     <th>
                       <input
                         type="checkbox"
@@ -314,18 +344,19 @@ const SearchForm = () => {
                       />
                     </th>
                   )}
+                  <th>S.no.</th>
                   <th>CRN</th>
                   <th>Loan No/ Card No</th>
                   <th>Customer Name</th>
+                  <th>Mobile</th>
                   <th>Product</th>
                   <th>Bank Name</th>
-                  <th>Agent Name</th>
                   <th>DPD Vintage</th>
                   <th>POS</th>
                   <th>EMI Amount</th>
                   <th>Loan Amount</th>
-                  <th>Mobile</th>
                   <th>Paid Amount</th>
+                  <th>Agent Name</th>
               </tr>
             </thead>
             <tbody className="customer-body">
@@ -339,27 +370,28 @@ const SearchForm = () => {
                   }}
                   style={{ cursor: 'pointer' }}
                 >
-                  {isAdmin && (
+                  {canAssignTeam && (
                     <td onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={selectedRecords.includes(customer.C_unique_id)}
+                        checked={selectedRecords.some(r => r.C_unique_id === customer.C_unique_id)}
                         onChange={() => handleSelect(customer.C_unique_id)}
                       />
                     </td>
                   )}
+                  <td>{(currentPage - 1) * recordsPerPage + searchResults.indexOf(customer) + 1}</td>
                   <td>{customer.CRN}</td>
+                  <td>{customer.loan_card_no}</td>
                   <td className="customer-name">{customer.c_name} </td>
                   <td><a href={`tel:${customer.mobile}`}>{customer.mobile}</a></td>
                   <td>{customer.product}</td>
                   <td>{customer.bank_name}</td>
-                  <td>{customer.agent_name}</td>
                   <td>{customer.DPD_vintage}</td>
                   <td>{customer.POS}</td>
                   <td>{customer.emi_AMT}</td>
                   <td>{customer.loan_AMT}</td>
-                  <td>{customer.mobile}</td>
                   <td>{customer.paid_AMT}</td>
+                  <td>{customer.agent_name}</td>
                 </tr>
               ))}
             </tbody>
@@ -369,8 +401,46 @@ const SearchForm = () => {
         )}
       </div>
 
+
+      {/* Controls section */}
+      {canAssignTeam && (
+        <div className="team-assignment-controls" style={{ marginTop: '0.5rem' }}>
+          {/* Only show delete button if user has delete permission */}
+          {canDeleteCustomers && (
+            <button 
+              onClick={handleDeleteSelected}
+              className="delete-selected-btn"
+              disabled={selectedRecords.length === 0}
+            >
+              Delete Selected
+            </button>
+          )}
+          
+          {/* Team assignment controls always visible if canAssignTeam */}
+          <select 
+            value={selectedTeamUser}
+            onChange={(e) => setSelectedTeamUser(e.target.value)}
+            className="team-user-select"
+          >
+            <option value="">Select User</option>
+            {availableAgents.map(agent => (
+              <option key={agent.id} value={agent.id}>
+                {agent.username} {agent.role === 'user' ? '(Agent)' : `(${agent.role})`}
+              </option>
+            ))}
+          </select>
+          <button 
+            onClick={handleAssignTeam}
+            className="assign-team-btn"
+            disabled={!selectedTeamUser || selectedRecords.length === 0}
+          >
+            Assign to Selected User
+          </button>
+        </div>
+      )}
+
       {/* Pagination Controls */}
-      {results.length > 0 && (
+      {searchResults.length > 0 && (
         <div className="pagination-containerr">
           <div className="paginationn">
             {currentPage > 1 && (
@@ -383,9 +453,9 @@ const SearchForm = () => {
               </button>
             )}
 
-            {[...Array(Math.ceil(totalCount / recordsPerPage)).keys()].map((_, idx) => idx + 1)
+            {[...Array(Math.ceil(searchResults.length / recordsPerPage)).keys()].map((_, idx) => idx + 1)
               .filter((pageNumber) => {
-                const totalPages = Math.ceil(totalCount / recordsPerPage);
+                const totalPages = Math.ceil(searchResults.length / recordsPerPage);
                 return (
                   pageNumber === 1 ||
                   pageNumber === totalPages ||
@@ -393,7 +463,7 @@ const SearchForm = () => {
                 );
               })
               .map((pageNumber, index, array) => {
-                const isGap = array[index + 1] !== pageNumber + 1 && pageNumber !== Math.ceil(totalCount / recordsPerPage);
+                const isGap = array[index + 1] !== pageNumber + 1 && pageNumber !== Math.ceil(searchResults.length / recordsPerPage);
                 return (
                   <React.Fragment key={pageNumber}>
                     <button
@@ -408,7 +478,7 @@ const SearchForm = () => {
                 );
               })}
 
-            {currentPage < Math.ceil(totalCount / recordsPerPage) && (
+            {currentPage < Math.ceil(searchResults.length / recordsPerPage) && (
               <button
                 onClick={() => paginate(currentPage + 1)}
                 className="page-number"
@@ -420,31 +490,7 @@ const SearchForm = () => {
           </div>
         </div>
       )}
-
-      {/* Team assignment controls for admin */}
-      {isAdmin && selectedRecords.length > 0 && (
-        <div className="team-assignment-controls">
-          <select 
-            value={selectedTeamUser}
-            onChange={(e) => setSelectedTeamUser(e.target.value)}
-            className="team-user-select"
-          >
-            <option value="">Select User</option>
-            {teamUsers.map(user => (
-              <option key={user.id} value={user.id}>
-                {user.username}
-              </option>
-            ))}
-          </select>
-          <button 
-            onClick={handleAssignTeam}
-            className="assign-team-btn"
-            disabled={!selectedTeamUser}
-          >
-            Assign to Team User
-          </button>
-        </div>
-      )}
+      
     </div>
   );
 };

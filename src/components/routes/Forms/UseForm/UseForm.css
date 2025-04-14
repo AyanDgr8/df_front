@@ -202,6 +202,7 @@
   transform: translateY(2px); 
 }
 
+
 /* Responsive styles for screens between 901px and 1280px */
 @media only screen and (min-width: 901px) and (max-width: 1280px) {
     .use-form-container {
